@@ -1,4 +1,4 @@
-📄 README – Cyber Control Tower (CCT)
+
 🧠 Project Title
 
 Cyber Control Tower (CCT) – AI-Driven Cybersecurity Simulation & SOC Visualization Platform
