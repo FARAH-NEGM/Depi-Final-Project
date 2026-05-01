@@ -1,291 +1,94 @@
-# 🚨 Enterprise Incident Response Simulation & Detection Platform
-
-## 📌 Track
-**Infrastructure and Security - Cyber Security**  
-**Role:** Incident Response Analyst  
-
-**Instructor:** ENG Ahmed Attia  
-
----
-
-## 👥 Team Members
-- Farah Negm Ahmed (Team Leader)
-- Salma Mansour Hussein
-- Zeina Wael Mohaseb
-- Youssef Mohamed ElSayed
-- Sherif Mahmoud Abdelraouf
-- Aly Ahmed Aly  
-
----
-
-# 📑 Table of Contents
-1. Project Planning & Management  
-2. Literature Review  
-3. Requirements Gathering  
-4. System Analysis & Design  
-
----
-
-# 🧠 1. Project Planning & Management
-
-## 📌 Project Proposal
-The **Enterprise Incident Response Simulation & Detection Platform** simulates real-world cyber attacks in a controlled enterprise environment.
-
-### 🎯 Objectives
-- Simulate real-world cyber attacks  
-- Detect malicious behavior in real-time  
-- Improve MTTD & MTTR  
-- Perform digital forensics  
-- Map attacks to MITRE ATT&CK  
-- Build security dashboards  
-
-### 📦 Scope
-- Enterprise network simulation  
-- Active Directory environment  
-- SIEM monitoring system  
-- Attack scenarios  
-- Log analysis  
-- Forensics investigation  
-- Dashboard visualization  
-
----
-
-## 📊 Project Plan
-
-### 🔹 Phase 1: Enterprise Lab Setup
-**Components:**
-- Windows Server (Active Directory)
-- Windows Clients
-- Kali Linux
-- SIEM (Wazuh / Splunk)
-
-**Outcome:** Fully functional enterprise lab  
-
----
-
-### 🔹 Phase 2: Cyber Attack Simulation (Red Team)
-
-**Attack Chain:**
-- Phishing Attack  
-- Malware Execution  
-- Privilege Escalation  
-- Lateral Movement  
-- Data Exfiltration  
-
-**Outcome:** Full attack lifecycle documented  
-
----
-
-### 🔹 Phase 3: Detection Engineering (Blue Team)
-
-**Activities:**
-- Detection rules  
-- Alert generation  
-- Log analysis  
-- MITRE mapping  
-
-**KPIs:**
-- MTTD  
-- MTTR  
-
----
-
-### 🔹 Phase 4: Digital Forensics
-
-**Tools:**
-- Autopsy  
-- Volatility  
-
-**Outputs:**
-- Attack timeline  
-- IOCs  
-- Root cause analysis  
-
----
-
-### 🔹 Phase 5: SOC Dashboard
-
-**Tools:**
-- ELK Stack  
-- Power BI  
-
-**Includes:**
-- Incident count  
-- Attack types  
-- Detection time  
-- Response time  
-
----
-
-## 👨‍💻 Task Assignment
-Tasks are distributed across:
-- Red Team (Attack Simulation)  
-- Blue Team (Detection)  
-- Forensics Team  
-- Dashboard Team  
-
----
-
-## ⚠️ Risk Management
-
-| Risk | Mitigation |
-|------|-----------|
-| SIEM overload | Log filtering |
-| False positives | Rule tuning |
-| Data loss | VM isolation |
-| Integration issues | Backups |
-
----
-
-## 📈 KPIs
-- MTTD  
-- MTTR  
-- False Positive Rate  
-- Detection Coverage  
-- Incident Resolution Time  
-
----
-
-# 📚 2. Literature Review
-
-## 🔍 Evaluation Criteria
-- Detection accuracy  
-- Response efficiency  
-- Log correlation  
-- System reliability  
-
-## 🚀 Improvements
-- Better attack visualization  
-- Stronger MITRE integration  
-- Reduce false positives  
-- Improve dashboards  
-
----
-
-# 📌 3. Requirements Gathering
-
-## 👥 Stakeholders
-- SOC Analysts  
-- System Admins  
-- Students  
-- Incident Responders  
-- Security Engineers  
-
----
-
-## 💡 User Stories
-- Detect attacks early  
-- Monitor logs  
-- Simulate attacks  
-- Investigate incidents  
-
----
-
-## ⚙️ Functional Requirements
-- Simulate attacks  
-- Detect threats  
-- Generate alerts  
-- Map to MITRE  
-- Support forensics  
-- Dashboard visualization  
-
----
-
-## ⚡ Non-Functional Requirements
-- Performance (real-time)  
-- Security  
-- Usability  
-- Reliability  
-- Scalability  
-
----
-
-# 🏗️ 4. System Analysis & Design
-
-## ❗ Problem Statement
-Organizations lack realistic environments to train on cyber attack response.
-
----
-
-## 🎯 Objectives
-- Simulate attacks  
-- Detect threats  
-- Apply incident response  
-- Perform forensics  
-- Visualize data  
-
----
-
-## 👤 Actors
-- SOC Analyst  
-- System Admin  
-- Attacker (Kali Linux)  
-- Security Engineer  
-
----
-
-## 🔄 Use Cases
-- Execute attack  
-- Monitor logs  
-- Detect threats  
-- Generate alerts  
-- Investigate incidents  
-
----
-
-## 🏛️ Architecture
-
-### Layers:
-- Endpoint Layer  
-- Attack Layer  
-- Collection Layer  
-- SIEM Layer  
-- Analysis Layer  
-- Visualization Layer  
-
----
-
-## 🗄️ Database Design
-
-**Entities:**
-- Users  
-- Systems  
-- Logs  
-- Alerts  
-- Incidents  
-
----
-
-## 🔁 System Flow
-Attack → Logs → SIEM → Alert → Investigation → Forensics  
-
----
-
-## 🎨 UI/UX
-- Dashboard-based interface  
-- Color-coded alerts  
-- Simple SOC design  
-
----
-
-## 🚀 Deployment
-
-### Tech Stack:
-- Windows Server  
-- Kali Linux  
-- Wazuh / Splunk  
-- ELK Stack / Power BI  
-
----
-
-## 🧪 Testing
-- Unit Testing  
-- Integration Testing  
-- Simulation Testing  
-
----
-
-## ⚙️ Deployment Strategy
-- Virtual lab environment  
-- Isolated network  
-- Central SIEM  
+📄 README – Cyber Control Tower (CCT)
+🧠 Project Title
+
+Cyber Control Tower (CCT) – AI-Driven Cybersecurity Simulation & SOC Visualization Platform
+
+📌 Project Overview
+
+Cyber Control Tower (CCT) is a web-based cybersecurity simulation platform that mimics a real Security Operations Center (SOC).
+The system transforms raw security logs into structured insights, correlates events into attack stories, maps them to the MITRE ATT&CK framework, and visualizes the organization as a Cyber Digital Twin.
+
+The platform also evaluates human behavior using Trust Scores and measures system efficiency using MTTD and MTTR.
+
+🎯 Key Features
+Log ingestion from multiple sources (Windows / Linux / authentication logs)
+Event correlation into meaningful security incidents
+Attack classification using MITRE ATT&CK framework
+Cyber Digital Twin (graph-based visualization of the organization)
+Human Trust Score for behavior-based risk analysis
+Attack propagation simulation
+Incident detection and response recommendations
+Performance metrics (MTTD & MTTR)
+Interactive dashboard for real-time monitoring
+🏗️ System Architecture
+
+The system follows a layered architecture:
+
+Data Ingestion Layer
+Cyber Digital Twin (Graph Layer)
+Correlation Engine
+MITRE Mapping Layer
+Trust Score Engine
+Attack Propagation Engine
+Detection Engine
+Response Engine
+Metrics Layer (MTTD / MTTR)
+Visualization Dashboard
+🧩 Project Modules
+1. Data Layer
+Collects and structures raw logs into JSON format
+2. Backend System
+Handles ingestion, correlation, MITRE mapping, and scoring
+3. Graph Engine
+Builds Cyber Digital Twin representation of the organization
+4. Frontend Dashboard
+Displays incidents, analytics, and live graph visualization
+5. Metrics Engine
+Calculates system performance (MTTD / MTTR)
+📊 Technologies Used
+Frontend: HTML, CSS, JavaScript (or React optional)
+Backend: Node.js / Python
+Data Format: JSON
+Visualization: D3.js / Cytoscape.js (for graph)
+📈 Key Concepts
+Security Operations Center (SOC) simulation
+Behavioral analysis and Trust Scoring
+Attack correlation and incident generation
+MITRE ATT&CK mapping
+Graph-based cybersecurity modeling
+👥 Team Roles
+Data Collection & Dataset Preparation
+Backend Development (Ingestion + APIs)
+Correlation & MITRE Mapping
+Trust Score & Metrics Engine
+Frontend Dashboard
+Cyber Digital Twin Visualization
+⚙️ System Workflow
+Logs are collected from multiple sources
+Data is structured into events
+Events are correlated into incidents
+Incidents are mapped to MITRE ATT&CK
+User behavior is analyzed (Trust Score)
+Attacks are simulated and propagated
+Dashboard visualizes results
+Performance metrics are calculated
+📌 Performance Metrics
+MTTD (Mean Time to Detect): Time taken to detect an attack
+MTTR (Mean Time to Respond): Time taken to respond and mitigate
+🚀 Project Goal
+
+To move beyond traditional SIEM systems by introducing:
+
+Behavioral analysis
+Attack storytelling instead of isolated logs
+Real-time cyber visualization (Digital Twin)
+Human risk evaluation alongside system risk
+📷 Future Improvements
+Real-time integration with live SIEM tools
+Machine learning-based anomaly detection
+Advanced automation for response actions
+Cloud deployment
+📚 References
+MITRE ATT&CK Framework
+SOC and SIEM concepts
+Cyber threat modeling and graph analytics
