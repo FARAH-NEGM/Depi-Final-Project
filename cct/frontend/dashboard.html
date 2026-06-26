@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Cyber Control Tower</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"
+          onerror="window.__cytoscapeFailed = true;"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"
+          onerror="window.__chartjsFailed = true;"></script>
+  <script>
+    // If the primary CDN (cdnjs) is blocked or unreachable on this network,
+    // fall back to jsDelivr automatically before the dashboard boots.
+    (function () {
+      function loadFallback(src, onload) {
+        var s = document.createElement('script');
+        s.src = src;
+        if (onload) s.onload = onload;
+        document.head.appendChild(s);
+      }
+      window.addEventListener('DOMContentLoaded', function () {
+        if (window.__cytoscapeFailed || typeof cytoscape === 'undefined') {
+          loadFallback('https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js');
+        }
+        if (window.__chartjsFailed || typeof Chart === 'undefined') {
+          loadFallback('https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js');
+        }
+      });
+    })();
+  </script>
+</head>
+<body>
+
+  <!-- ============ TOP STATUS BAR ============ -->
+  <header class="topbar">
+    <a href="/" class="brand" style="text-decoration:none;">
+      <span class="brand-mark">⛭</span>
+      <div class="brand-text">
+        <span class="brand-title">CYBER CONTROL TOWER</span>
+        <span class="brand-sub">Security Operations Center — Simulation</span>
+      </div>
+    </a>
+
+    <div class="topbar-kpis" id="topbar-kpis">
+      <!-- filled by js -->
+    </div>
+
+    <div class="topbar-pagelinks">
+      <a href="/" class="topbar-pagelink">Overview</a>
+      <a href="/incidents" class="topbar-pagelink">Incidents</a>
+    </div>
+
+    <div class="topbar-mode">
+      <button class="mode-btn active" data-mode="analysis" id="btn-mode-analysis">Full Analysis</button>
+      <button class="mode-btn" data-mode="live" id="btn-mode-live">Live Feed</button>
+      <span class="clock" id="clock">--:--:--</span>
+    </div>
+  </header>
+
+  <!-- ============ MAIN GRID ============ -->
+  <main class="grid">
+
+    <!-- ---- CENTER: Cyber Digital Twin (signature element) ---- -->
+    <section class="panel panel-twin">
+      <div class="panel-head">
+        <h2>Cyber Digital Twin</h2>
+        <div class="twin-legend">
+          <span class="legend-item"><i class="dot dot-ip"></i>IP</span>
+          <span class="legend-item"><i class="dot dot-user"></i>User</span>
+          <span class="legend-item"><i class="dot dot-segment"></i>Segment</span>
+          <span class="legend-sep">|</span>
+          <span class="legend-item"><i class="dot dot-critical"></i>Critical</span>
+          <span class="legend-item"><i class="dot dot-high"></i>High</span>
+          <span class="legend-item"><i class="dot dot-medium"></i>Medium</span>
+          <span class="legend-item"><i class="dot dot-low"></i>Low/None</span>
+        </div>
+      </div>
+      <div id="cy" class="cy-container"></div>
+      <div class="twin-footer">
+        <span id="twin-node-count">— nodes</span>
+        <span class="dim">·</span>
+        <span id="twin-edge-count">— edges</span>
+        <span class="dim">·</span>
+        <span>Click a node to inspect</span>
+      </div>
+    </section>
+
+    <!-- ---- RIGHT RAIL: Trust Score Leaderboard ---- -->
+    <aside class="panel panel-trust">
+      <div class="panel-head">
+        <h2>Trust Score</h2>
+        <span class="panel-tag">Risk leaderboard</span>
+      </div>
+      <div class="trust-list" id="trust-list">
+        <!-- filled by js -->
+      </div>
+    </aside>
+
+    <!-- ---- BOTTOM LEFT: MITRE ATT&CK Heatmap ---- -->
+    <section class="panel panel-mitre">
+      <div class="panel-head">
+        <h2>MITRE ATT&amp;CK Mapping</h2>
+        <span class="panel-tag">Technique frequency</span>
+      </div>
+      <div id="mitre-heatmap" class="mitre-grid"></div>
+    </section>
+
+    <!-- ---- BOTTOM CENTER: MTTD / MTTR ---- -->
+    <section class="panel panel-metrics">
+      <div class="panel-head">
+        <h2>MTTD &amp; MTTR</h2>
+        <span class="panel-tag">Detection &amp; response performance</span>
+      </div>
+      <div class="metrics-charts">
+        <div class="chart-block">
+          <span class="chart-label">By Severity (minutes)</span>
+          <canvas id="chart-severity"></canvas>
+        </div>
+        <div class="chart-block">
+          <span class="chart-label">Monthly Trend</span>
+          <canvas id="chart-trend"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---- BOTTOM RIGHT: Live / Incident Feed ---- -->
+    <section class="panel panel-feed">
+      <div class="panel-head">
+        <h2 id="feed-title">Incident Feed</h2>
+        <span class="panel-tag" id="feed-tag">All incidents</span>
+      </div>
+      <div class="feed-list" id="feed-list"></div>
+    </section>
+
+  </main>
+
+  <!-- ============ DETAIL DRAWER (node / incident inspector) ============ -->
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+  <aside class="drawer" id="drawer">
+    <div class="drawer-head">
+      <span id="drawer-title">Details</span>
+      <button id="drawer-close" aria-label="Close">×</button>
+    </div>
+    <div class="drawer-body" id="drawer-body"></div>
+  </aside>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/util.js"></script>
+  <script src="/js/twin.js"></script>
+  <script src="/js/trust.js"></script>
+  <script src="/js/mitre.js"></script>
+  <script src="/js/metrics.js"></script>
+  <script src="/js/feed.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>
