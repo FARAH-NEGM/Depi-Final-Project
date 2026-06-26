@@ -1,0 +1,12 @@
+# CCT – Backend Developer 1: Log Ingestion & APIs
+# Python 3.10+
+
+flask==3.0.3
+flask-sqlalchemy==3.1.1
+sqlalchemy==2.0.30
+pandas==2.2.2
+numpy==1.26.4
+requests==2.32.3
+
+# Optional: swap to PostgreSQL in production
+# psycopg2-binary==2.9.9
