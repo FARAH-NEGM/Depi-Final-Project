@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Console — Cyber Control Tower</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/console.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"
+          onerror="window.__cytoscapeFailed = true;"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"
+          onerror="window.__chartjsFailed = true;"></script>
+  <script>
+    (function () {
+      function loadFallback(src) {
+        var s = document.createElement('script');
+        s.src = src;
+        document.head.appendChild(s);
+      }
+      window.addEventListener('DOMContentLoaded', function () {
+        if (window.__cytoscapeFailed || typeof cytoscape === 'undefined') {
+          loadFallback('https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js');
+        }
+        if (window.__chartjsFailed || typeof Chart === 'undefined') {
+          loadFallback('https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js');
+        }
+      });
+    })();
+  </script>
+</head>
+<body class="console-body">
+
+  <div class="console-shell" id="console-shell" style="display:none;">
+    <aside class="console-sidebar">
+      <a href="/" class="console-brand">
+        <span class="brand-mark">⛭</span>
+        <div class="console-brand-text">
+          <span class="console-brand-title">CCT</span>
+          <span class="console-brand-sub">Cyber Control Tower</span>
+        </div>
+      </a>
+
+      <nav class="console-nav" id="console-nav"></nav>
+
+      <div class="console-sidebar-note">
+        <b id="console-role-label">—</b>
+        <p id="console-role-desc">Loading session…</p>
+      </div>
+
+      <button class="console-logout" id="console-logout-btn">Sign Out</button>
+    </aside>
+
+    <main class="console-main">
+      <header class="console-topbar">
+        <div class="console-topbar-title">
+          <h1 id="console-page-title">—</h1>
+          <p id="console-page-subtitle">—</p>
+        </div>
+        <div class="console-topbar-actions" id="console-topbar-actions"></div>
+      </header>
+
+      <div class="console-content" id="console-content">
+        <div class="console-loading">Loading…</div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ============ DETAIL DRAWER (shared across sections) ============ -->
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+  <aside class="drawer" id="drawer">
+    <div class="drawer-head">
+      <span id="drawer-title">Details</span>
+      <button id="drawer-close" aria-label="Close">×</button>
+    </div>
+    <div class="drawer-body" id="drawer-body"></div>
+  </aside>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/util.js"></script>
+  <script src="/js/twin.js"></script>
+  <script src="/js/console/drawer.js"></script>
+  <script src="/js/console/sections/command.js"></script>
+  <script src="/js/console/sections/triage.js"></script>
+  <script src="/js/console/sections/correlation.js"></script>
+  <script src="/js/console/sections/hunting.js"></script>
+  <script src="/js/console/sections/playbooks.js"></script>
+  <script src="/js/console/sections/assets.js"></script>
+  <script src="/js/console/sections/audit.js"></script>
+  <script src="/js/console/router.js"></script>
+</body>
+</html>
