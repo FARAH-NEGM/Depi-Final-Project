@@ -33,16 +33,6 @@ const Twin = (() => {
   }
 
   async function init(containerId, onNodeClick) {
-    // Destroy any previous instance first -- the console lets users
-    // navigate between sections (Command Center, Correlation Engine) that
-    // each mount their own #cy-style container; without this, the old
-    // Cytoscape instance leaks bound to a DOM node that's already been
-    // replaced by the router's innerHTML swap.
-    if (cy) {
-      try { cy.destroy(); } catch (err) { /* already gone, ignore */ }
-      cy = null;
-    }
-
     const graphData = await API.graph();
 
     const elements = [
@@ -140,13 +130,8 @@ const Twin = (() => {
       evt.target.removeClass('highlighted');
     });
 
-    // Node/edge counts are optional UI -- only written if the host page
-    // happens to have these elements (not every section that embeds the
-    // graph shows a count).
-    const nodeCountEl = document.getElementById('twin-node-count');
-    const edgeCountEl = document.getElementById('twin-edge-count');
-    if (nodeCountEl) nodeCountEl.textContent = `${graphData.nodes.length} nodes`;
-    if (edgeCountEl) edgeCountEl.textContent = `${graphData.edges.length} edges`;
+    document.getElementById('twin-node-count').textContent = `${graphData.nodes.length} nodes`;
+    document.getElementById('twin-edge-count').textContent = `${graphData.edges.length} edges`;
 
     return cy;
   }
