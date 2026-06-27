@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cyber Control Tower — SOC Simulation Platform</title>
+  <meta name="description" content="A simulated Security Operations Center: log correlation, MITRE ATT&CK mapping, behavioral Trust Scoring, and MTTD/MTTR performance metrics in one Cyber Digital Twin." />
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="page-outer">
+
+  <div id="site-nav"></div>
+
+  <!-- ============ HERO ============ -->
+  <section class="landing-hero">
+    <span class="landing-eyebrow">● SOC Simulation Platform</span>
+    <h1>See every incident.<br>Score every account.<br>Know your <em>real</em> exposure.</h1>
+    <p class="lede">
+      Cyber Control Tower ingests raw security logs, correlates them into
+      incidents, maps every attack to MITRE ATT&amp;CK, and scores user
+      behavioral risk — all visualized as a live Cyber Digital Twin of your
+      organization.
+    </p>
+    <div class="landing-cta-row">
+      <a href="/dashboard" class="btn-primary">Launch Dashboard →</a>
+      <a href="/incidents" class="btn-secondary">View Incidents</a>
+    </div>
+  </section>
+
+  <!-- ============ LIVE STATS (real numbers from the API) ============ -->
+  <section style="padding: 0 28px 60px;">
+    <div class="landing-stats" id="landing-stats">
+      <div class="landing-stat"><div class="landing-stat-value skeleton" style="height:32px;width:60px;margin:0 auto;">&nbsp;</div><div class="landing-stat-label">Events Ingested</div></div>
+      <div class="landing-stat"><div class="landing-stat-value skeleton" style="height:32px;width:60px;margin:0 auto;">&nbsp;</div><div class="landing-stat-label">Incidents Correlated</div></div>
+      <div class="landing-stat"><div class="landing-stat-value skeleton" style="height:32px;width:60px;margin:0 auto;">&nbsp;</div><div class="landing-stat-label">Accounts Tracked</div></div>
+      <div class="landing-stat"><div class="landing-stat-value skeleton" style="height:32px;width:60px;margin:0 auto;">&nbsp;</div><div class="landing-stat-label">Avg. MTTD</div></div>
+    </div>
+  </section>
+
+  <!-- ============ PIPELINE ============ -->
+  <section class="landing-section">
+    <div class="landing-section-head">
+      <span class="landing-section-eyebrow">How it works</span>
+      <h2>One pipeline, six stages</h2>
+      <p>Raw logs go in. A fully correlated, risk-scored, MITRE-mapped picture of your organization comes out — recomputed live from the dataset every time it runs.</p>
+    </div>
+    <div class="pipeline-row">
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">01</div>
+        <h4>Ingest</h4>
+        <p>Raw logs normalized into a unified event schema.</p>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">02</div>
+        <h4>Correlate</h4>
+        <p>Events grouped into incidents and per-user behavioral threads.</p>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">03</div>
+        <h4>Map</h4>
+        <p>Every incident tagged with real MITRE ATT&amp;CK techniques.</p>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">04</div>
+        <h4>Score</h4>
+        <p>Trust Score computed per account from severity, response &amp; anomaly signals.</p>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">05</div>
+        <h4>Measure</h4>
+        <p>MTTD/MTTR aggregated by severity, attack type, and time.</p>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-step-num">06</div>
+        <h4>Visualize</h4>
+        <p>The whole organization rendered as a live Cyber Digital Twin.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FEATURES ============ -->
+  <section class="landing-section">
+    <div class="landing-section-head">
+      <span class="landing-section-eyebrow">Core capabilities</span>
+      <h2>Built to answer the questions a SOC analyst actually asks</h2>
+      <p>Not just log storage — every module exists to answer a specific operational question.</p>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-card-icon">01 / TWIN</div>
+        <h3>Cyber Digital Twin</h3>
+        <p>An interactive graph of every IP, user, and network segment observed in your logs, colored live by risk score.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-icon">02 / TRUST</div>
+        <h3>Trust Score Engine</h3>
+        <p>A fully explainable 0–100 behavioral risk score per account — severity, response quality, anomaly signal, and frequency, each shown separately.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-icon">03 / MITRE</div>
+        <h3>ATT&amp;CK Mapping</h3>
+        <p>Every incident automatically tagged with real MITRE ATT&amp;CK technique IDs and tactics, visualized as a frequency heatmap.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-icon">04 / METRICS</div>
+        <h3>MTTD &amp; MTTR</h3>
+        <p>Detection and response timing broken down by severity, attack type, network segment, and month-over-month trend.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-icon">05 / LIVE</div>
+        <h3>Live Feed Mode</h3>
+        <p>Toggle into a simulated real-time incident stream — built for walkthroughs and demos, not just static reports.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-icon">06 / OPEN</div>
+        <h3>Fully Inspectable</h3>
+        <p>Click any node, user, or incident to see exactly why it scored the way it did. Nothing is a black box.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="landing-footer">
+    <span>CYBER CONTROL TOWER — SOC SIMULATION</span>
+    <span>Running locally · No data leaves this machine</span>
+  </footer>
+
+  <script src="/js/nav.js"></script>
+  <script src="/js/api.js"></script>
+  <script>
+    (async function () {
+      try {
+        const s = await API.summary();
+        const stats = document.querySelectorAll('#landing-stats .landing-stat-value');
+        const values = [
+          s.total_events,
+          s.total_incidents,
+          s.total_users,
+          `${s.overall_mttd_mttr.mttd_mean.toFixed(1)}m`,
+        ];
+        stats.forEach((el, i) => {
+          el.classList.remove('skeleton');
+          el.style.height = '';
+          el.style.width = '';
+          el.textContent = values[i];
+        });
+      } catch (err) {
+        console.error('Failed to load live stats:', err);
+        document.querySelectorAll('#landing-stats .landing-stat-value').forEach((el) => {
+          el.classList.remove('skeleton');
+          el.style.height = '';
+          el.style.width = '';
+          el.textContent = '—';
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
