@@ -16,17 +16,18 @@ class TestLogicValidation(unittest.TestCase):
         self.assertEqual(summary.mttr_mean, 0)
 
     def test_metrics_handles_none_values(self):
-    class MockIncident:
-        mttd_minutes = None
-        mttr_minutes = None
+        class MockIncident:
+            mttd_minutes = None
+            mttr_minutes = None
 
-    summary = _summarize([MockIncident()])
+        summary = _summarize([MockIncident()])
 
-    self.assertEqual(summary.count, 0)
-    self.assertEqual(summary.mttd_mean, 0)
-    self.assertEqual(summary.mttr_mean, 0)
-    self.assertEqual(summary.mttd_median, 0)
-    self.assertEqual(summary.mttr_median, 0)
+        self.assertEqual(summary.count, 0)
+        self.assertEqual(summary.mttd_mean, 0)
+        self.assertEqual(summary.mttr_mean, 0)
+        self.assertEqual(summary.mttd_median, 0)
+        self.assertEqual(summary.mttr_median, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
