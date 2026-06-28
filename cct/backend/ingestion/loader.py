@@ -1,124 +1,131 @@
 """
-Event Ingestion / Loader
-==========================
-Generates a realistic synthetic security event dataset in memory.
-No CSV file required — data is generated deterministically so every run
-produces the same events (reproducible for demos/grading).
+Log Ingestion Layer
+====================
+Loads raw security log data (currently: the cybersecurity_example.csv dataset)
+and normalises every row into a single, consistent "Event" schema that every
+downstream module (Correlation, MITRE mapping, Trust Score, MTTD/MTTR, Graph)
+can rely on.
 
-Each Event mirrors the schema expected by all downstream modules:
-  event_id, timestamp, user, src_ip, dst_ip, network_segment,
-  attack_type, severity, action_taken, anomaly_score
+Why this layer exists
+----------------------
+Real SOCs pull logs from many different sources (firewalls, IDS/IPS, servers,
+proxies) each with their own field names. The whole point of a "Cyber Control
+Tower" is to flatten all of that into one normalised event stream. This module
+is where that flattening happens — if you ever plug in a second dataset
+(UNSW-NB15, CICIDS-2017, NSL-KDD — see the /notebooks folder) you only need to
+write one new `*_to_events()` function here; nothing else in the system needs
+to change.
 """
+
 from __future__ import annotations
 
-import random
-from dataclasses import dataclass
-from datetime import datetime, timedelta
+import hashlib
+import os
+from dataclasses import dataclass, asdict, field
+from datetime import datetime
 from typing import Optional
+
+import pandas as pd
+
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+DEFAULT_CSV = os.path.join(DATA_DIR, "cybersecurity_example.csv")
 
 
 @dataclass
 class Event:
+    """Unified security event schema used across the whole CCT system."""
+
     event_id: str
     timestamp: datetime
-    user: str
     src_ip: str
     dst_ip: str
-    network_segment: str
-    attack_type: str
-    severity: str
-    action_taken: str
+    src_port: int
+    dst_port: int
+    protocol: str
+    packet_length: int
+    packet_type: str
+    traffic_type: str
+    payload_snippet: str
+    malware_indicator: bool
     anomaly_score: float
+    alert_triggered: bool
+    attack_type: str
+    attack_signature: str
+    action_taken: str
+    severity: str
+    user: str
+    device_info: str
+    network_segment: str
+    geo_location: str
+    proxy_ip: Optional[str]
+    firewall_logged: bool
+    ids_ips_alert: bool
+    log_source: str
+
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        d["timestamp"] = self.timestamp.isoformat()
+        return d
 
 
-# ── Synthetic dataset parameters ──────────────────────────────────────────────
-
-USERS = [
-    "alice.morgan", "bob.chen", "carol.james", "david.liu", "eve.patel",
-    "frank.osei", "grace.kim", "henry.ross", "iris.taylor", "james.nkosi",
-    "karen.wu", "liam.santos", "mia.jones", "noah.fischer", "olivia.brown",
-    "peter.garcia", "quinn.walker", "rachel.ahmed", "sam.lee", "tina.clark",
-]
-
-SRC_IPS = [
-    "10.0.1.10", "10.0.1.22", "10.0.2.5", "10.0.2.17", "10.0.3.8",
-    "10.0.3.31", "10.0.4.14", "10.0.4.29", "192.168.1.5", "192.168.1.18",
-    "192.168.2.3", "192.168.2.44", "172.16.0.7", "172.16.0.19",
-]
-
-DST_IPS = [
-    "10.0.10.1", "10.0.10.2", "10.0.20.5", "10.0.20.6", "10.0.30.3",
-    "10.0.30.9", "8.8.8.8", "1.1.1.1", "203.0.113.50", "198.51.100.12",
-    "10.0.10.100", "10.0.20.200",
-]
-
-SEGMENTS = ["Segment A", "Segment B", "Segment C", "Segment D"]
-
-ATTACK_TYPES = [
-    "Brute Force", "SQL Injection", "Phishing", "Ransomware",
-    "DDoS", "Man-in-the-Middle", "Privilege Escalation",
-    "Data Exfiltration", "Lateral Movement", "Zero-Day Exploit",
-]
-
-SEVERITY_DIST = [
-    ("Critical", 0.12), ("High", 0.28), ("Medium", 0.38), ("Low", 0.22)
-]
-
-ACTIONS = [
-    ("Blocked", 0.35), ("Quarantined", 0.20), ("Logged", 0.30), ("Ignored", 0.15)
-]
-
-MITRE_MAP = {
-    "Brute Force":            ("T1110", "Credential Access"),
-    "SQL Injection":          ("T1190", "Initial Access"),
-    "Phishing":               ("T1566", "Initial Access"),
-    "Ransomware":             ("T1486", "Impact"),
-    "DDoS":                   ("T1498", "Impact"),
-    "Man-in-the-Middle":      ("T1557", "Credential Access"),
-    "Privilege Escalation":   ("T1068", "Privilege Escalation"),
-    "Data Exfiltration":      ("T1041", "Exfiltration"),
-    "Lateral Movement":       ("T1021", "Lateral Movement"),
-    "Zero-Day Exploit":       ("T1203", "Execution"),
-}
+SEVERITY_ORDER = {"Low": 0, "Medium": 1, "High": 2, "Critical": 3}
 
 
-def _weighted_choice(rng: random.Random, choices: list[tuple]) -> str:
-    items = [c[0] for c in choices]
-    weights = [c[1] for c in choices]
-    return rng.choices(items, weights=weights, k=1)[0]
+def _make_event_id(row: pd.Series, idx: int) -> str:
+    """Deterministic short hash so re-running ingestion gives stable IDs."""
+    raw = f"{row['Timestamp']}-{row['Source IP Address']}-{row['Destination IP Address']}-{idx}"
+    return "EVT-" + hashlib.sha1(raw.encode()).hexdigest()[:10]
 
 
-def _generate_events(n: int = 800, seed: int = 42) -> list[Event]:
-    rng = random.Random(seed)
-    start = datetime(2023, 1, 1)
-    end = datetime(2024, 12, 31)
-    span = (end - start).total_seconds()
+def load_raw_csv(path: str = DEFAULT_CSV) -> pd.DataFrame:
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Dataset not found at {path}")
+    df = pd.read_csv(path)
+    df.columns = df.columns.str.strip()
+    return df
 
+
+def csv_to_events(path: str = DEFAULT_CSV) -> list[Event]:
+    """Load the cybersecurity_example dataset and normalise to Event objects."""
+    df = load_raw_csv(path)
     events: list[Event] = []
-    for i in range(n):
-        ts = start + timedelta(seconds=rng.uniform(0, span))
-        user = rng.choice(USERS)
-        src = rng.choice(SRC_IPS)
-        dst = rng.choice(DST_IPS)
-        seg = rng.choice(SEGMENTS)
-        attack = rng.choice(ATTACK_TYPES)
-        severity = _weighted_choice(rng, SEVERITY_DIST)
-        action = _weighted_choice(rng, ACTIONS)
-        anomaly = round(rng.uniform(0, 100), 2)
 
-        events.append(Event(
-            event_id=f"EVT-{i+1:05d}",
-            timestamp=ts,
-            user=user,
-            src_ip=src,
-            dst_ip=dst,
-            network_segment=seg,
-            attack_type=attack,
-            severity=severity,
-            action_taken=action,
-            anomaly_score=anomaly,
-        ))
+    for idx, row in df.iterrows():
+        ts = pd.to_datetime(row["Timestamp"])
 
+        events.append(
+            Event(
+                event_id=_make_event_id(row, idx),
+                timestamp=ts.to_pydatetime(),
+                src_ip=row["Source IP Address"],
+                dst_ip=row["Destination IP Address"],
+                src_port=int(row["Source Port"]),
+                dst_port=int(row["Destination Port"]),
+                protocol=row["Protocol"],
+                packet_length=int(row["Packet Length"]),
+                packet_type=row["Packet Type"],
+                traffic_type=row["Traffic Type"],
+                payload_snippet=str(row["Payload Data"])[:120],
+                malware_indicator=(pd.notna(row["Malware Indicators"])),
+                anomaly_score=float(row["Anomaly Scores"]),
+                alert_triggered=(pd.notna(row["Alerts/Warnings"])),
+                attack_type=row["Attack Type"],
+                attack_signature=row["Attack Signature"],
+                action_taken=row["Action Taken"],
+                severity=row["Severity Level"],
+                user=row["User Information"],
+                device_info=row["Device Information"],
+                network_segment=row["Network Segment"],
+                geo_location=row["Geo-location Data"],
+                proxy_ip=(row["Proxy Information"] if pd.notna(row["Proxy Information"]) else None),
+                firewall_logged=(pd.notna(row["Firewall Logs"])),
+                ids_ips_alert=(pd.notna(row["IDS/IPS Alerts"])),
+                log_source=row["Log Source"],
+            )
+        )
+
+    # Chronological order matters a lot downstream (correlation windows,
+    # live-feed simulation, MTTD/MTTR ordering).
     events.sort(key=lambda e: e.timestamp)
     return events
 
@@ -127,7 +134,14 @@ _CACHE: list[Event] | None = None
 
 
 def get_events(force_reload: bool = False) -> list[Event]:
+    """Cached accessor so we don't re-parse the CSV on every API call."""
     global _CACHE
     if _CACHE is None or force_reload:
-        _CACHE = _generate_events()
+        _CACHE = csv_to_events()
     return _CACHE
+
+
+if __name__ == "__main__":
+    evs = get_events()
+    print(f"Loaded {len(evs)} events")
+    print(evs[0].to_dict())
