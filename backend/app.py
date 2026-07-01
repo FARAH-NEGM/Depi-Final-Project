@@ -1,23 +1,14 @@
 """
-Cyber Control Tower — Backend Entry Point  v3
+Cyber Control Tower — Backend Entry Point  v4
 ==============================================
-Changes vs v2:
-- Real session-based authentication (Flask signed cookies). Two roles:
-  Security Analyst and SOC Manager — matching the project proposal's own
-  stakeholder analysis.
-- All /api/* routes (except /api/auth/*) now require a logged-in session.
-- Manager-only routes (Trust Score, Metrics) are gated by role, returning
-  403 for an analyst session — not just hidden in the UI.
-- New: POST /api/incidents/<id>/status — analysts/managers can move an
-  incident through a real workflow (Open -> Investigating -> Contained ->
-  Resolved). This backs the dashboard's "Run containment" action with an
-  actual state change instead of a client-side-only simulation.
-- New: GET /api/search?q=... — real query engine over the correlated
-  incident set, backing the "Threat Hunting" view.
-- New: GET /api/audit — real audit log (logins, status changes, exports),
-  backing the "Audit Trail" view.
-- New: GET /api/auth/me, POST /api/auth/login, POST /api/auth/logout.
-- All v1/v2 read endpoints preserved with 100% backward-compatible shapes.
+Changes vs v3:
+- page_login_required: /dashboard and /incidents now redirect to / when
+  the user has no active session. Previously any visitor could open these
+  URLs directly and get a broken dashboard (the API would 401 but the
+  HTML still loaded).
+- POST /api/auth/register: sign-up endpoint with full server-side
+  validation. Returns the same shape as /api/auth/login so the frontend
+  can auto-login the user immediately after account creation.
 """
 
 from __future__ import annotations
@@ -26,7 +17,7 @@ import os
 import secrets
 from functools import wraps
 
-from flask import Flask, jsonify, request, send_from_directory, session
+from flask import Flask, jsonify, redirect, request, send_from_directory, session
 
 from ingestion.loader import get_events
 from correlation.engine import (
@@ -40,7 +31,7 @@ from graph.twin import get_graph, graph_to_cytoscape
 from api.live_feed import get_feed_page
 from search.engine import search_incidents, SUGGESTED_HUNTS
 
-from auth.users import authenticate, get_user, list_demo_accounts
+from auth.users import authenticate, get_user, list_demo_accounts, register
 from auth.permissions import permissions_for, can
 from auth.audit import record as record_audit, get_log as get_audit_log
 
@@ -48,10 +39,6 @@ FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fronten
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="")
 
-# Signed session cookies need a secret key. Stable per-process is enough
-# for a demo (sessions reset on restart, same as every other in-memory
-# cache in this app) — generated once at import time rather than
-# hard-coded, so it's never committed to source control.
 app.secret_key = os.environ.get("CCT_SECRET_KEY", secrets.token_hex(32))
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
@@ -70,11 +57,25 @@ def current_user():
 
 
 def login_required(view):
+    """Protects API routes — returns 401 JSON when not logged in."""
     @wraps(view)
     def wrapped(*args, **kwargs):
-        user = current_user()
-        if not user:
+        if not current_user():
             return jsonify({"error": "authentication required"}), 401
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def page_login_required(view):
+    """
+    Protects HTML page routes — redirects to / (login screen) when not
+    logged in.  Different from login_required because a browser cannot
+    do anything useful with a 401 JSON response when loading a page.
+    """
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not current_user():
+            return redirect("/")
         return view(*args, **kwargs)
     return wrapped
 
@@ -89,7 +90,7 @@ def role_required(capability: str):
                 return jsonify({"error": "authentication required"}), 401
             if not can(user.role, capability):
                 return jsonify({
-                    "error": "forbidden",
+                    "error":   "forbidden",
                     "message": f"This requires a capability your role ({user.role}) does not have.",
                 }), 403
             return view(*args, **kwargs)
@@ -102,49 +103,96 @@ def role_required(capability: str):
 # ---------------------------------------------------------------------------
 @app.route("/")
 def index():
+    # Root is the login/sign-up screen — no auth check here.
     return send_from_directory(FRONTEND_DIR, "index.html")
 
 
 @app.route("/dashboard")
+@page_login_required
 def dashboard_page():
     return send_from_directory(FRONTEND_DIR, "index.html")
 
 
 @app.route("/incidents")
+@page_login_required
 def incidents_page():
     return send_from_directory(FRONTEND_DIR, "index.html")
 
 
 # ---------------------------------------------------------------------------
-# Auth
+# Auth endpoints
 # ---------------------------------------------------------------------------
 @app.route("/api/auth/login", methods=["POST"])
 def api_login():
-    body = request.get_json(silent=True) or {}
+    body     = request.get_json(silent=True) or {}
     username = (body.get("username") or "").strip()
-    password = body.get("password") or ""
+    password =  body.get("password") or ""
+
+    if not username or not password:
+        return jsonify({"error": "Username and password are required."}), 400
 
     user = authenticate(username, password)
     if not user:
-        return jsonify({"error": "invalid username or password"}), 401
+        return jsonify({"error": "Invalid username or password."}), 401
 
     session.clear()
     session["username"] = user.username
-    session.permanent = True
+    session.permanent   = True
 
-    record_audit(user.username, user.to_public_dict()["role_label"], "Signed in", target=user.username)
+    record_audit(user.username, user.to_public_dict()["role_label"],
+                 "Signed in", target=user.username)
 
     return jsonify({
-        "user": user.to_public_dict(),
+        "user":        user.to_public_dict(),
         "permissions": permissions_for(user.role),
     })
+
+
+@app.route("/api/auth/register", methods=["POST"])
+def api_register():
+    """
+    Create a new account, then immediately sign the user in.
+    Returns the same JSON shape as /api/auth/login.
+
+    Expected body:
+    {
+        "username":     "john",
+        "display_name": "John Smith",   ← optional
+        "role":         "analyst",      ← "analyst" | "manager"
+        "password":     "secret123"
+    }
+    """
+    body         = request.get_json(silent=True) or {}
+    username     = (body.get("username")     or "").strip()
+    display_name = (body.get("display_name") or "").strip()
+    role         = (body.get("role")         or "").strip()
+    password     =  body.get("password")     or ""
+
+    user, error = register(username, display_name, role, password)
+    if error:
+        status = 409 if "already exists" in error else 400
+        return jsonify({"error": error}), status
+
+    # Auto sign-in after successful registration
+    session.clear()
+    session["username"] = user.username
+    session.permanent   = True
+
+    record_audit(user.username, user.to_public_dict()["role_label"],
+                 "Registered and signed in", target=user.username)
+
+    return jsonify({
+        "user":        user.to_public_dict(),
+        "permissions": permissions_for(user.role),
+    }), 201
 
 
 @app.route("/api/auth/logout", methods=["POST"])
 def api_logout():
     user = current_user()
     if user:
-        record_audit(user.username, user.to_public_dict()["role_label"], "Signed out", target=user.username)
+        record_audit(user.username, user.to_public_dict()["role_label"],
+                     "Signed out", target=user.username)
     session.clear()
     return jsonify({"ok": True})
 
@@ -155,14 +203,13 @@ def api_me():
     if not user:
         return jsonify({"user": None}), 200
     return jsonify({
-        "user": user.to_public_dict(),
+        "user":        user.to_public_dict(),
         "permissions": permissions_for(user.role),
     })
 
 
 @app.route("/api/auth/demo-accounts")
 def api_demo_accounts():
-    """Non-secret demo credentials shown on the login screen only."""
     return jsonify(list_demo_accounts())
 
 
@@ -177,7 +224,7 @@ def api_events():
 
 
 # ---------------------------------------------------------------------------
-# Incidents (correlated + MITRE-enriched)  — backward compatible + new fields
+# Incidents
 # ---------------------------------------------------------------------------
 @app.route("/api/incidents")
 @login_required
@@ -185,7 +232,6 @@ def api_incidents():
     incidents = get_incidents()
     enriched  = enrich_incidents(incidents)
 
-    # Optional query filters
     severity    = request.args.get("severity")
     risk_min    = request.args.get("risk_min", type=float)
     attack_type = request.args.get("attack_type")
@@ -213,39 +259,31 @@ def api_incident_detail(incident_id: str):
     return jsonify(enrich_incident(match))
 
 
-# NEW: attack chain incidents only
 @app.route("/api/incidents/chains")
 @login_required
 def api_incident_chains():
-    """Returns incidents with multi-stage attack chains (confidence > 0.4)."""
     incidents = get_incidents()
     chains    = [i for i in incidents if i.chain_confidence > 0.4 or i.event_count > 1]
     return jsonify(enrich_incidents(chains))
 
 
-# NEW v3: real incident workflow status changes
 @app.route("/api/incidents/<incident_id>/status", methods=["POST"])
 @login_required
 def api_incident_status(incident_id: str):
-    user = current_user()
-    body = request.get_json(silent=True) or {}
+    user       = current_user()
+    body       = request.get_json(silent=True) or {}
     new_status = (body.get("status") or "").strip()
 
     if new_status not in VALID_STATUSES:
-        return jsonify({
-            "error": "invalid status",
-            "valid_statuses": VALID_STATUSES,
-        }), 400
+        return jsonify({"error": "invalid status", "valid_statuses": VALID_STATUSES}), 400
 
     updated = update_incident_status(incident_id, new_status)
     if not updated:
         return jsonify({"error": "not found"}), 404
 
-    record_audit(
-        user.username, user.to_public_dict()["role_label"],
-        "Changed incident status", target=incident_id,
-        detail=f"-> {new_status}",
-    )
+    record_audit(user.username, user.to_public_dict()["role_label"],
+                 "Changed incident status", target=incident_id,
+                 detail=f"-> {new_status}")
 
     return jsonify(enrich_incident(updated))
 
@@ -253,7 +291,6 @@ def api_incident_status(incident_id: str):
 @app.route("/api/incidents/statuses")
 @login_required
 def api_incident_statuses():
-    """The valid workflow states, for the frontend's status control."""
     return jsonify(VALID_STATUSES)
 
 
@@ -272,10 +309,10 @@ def api_mitre_catalog():
     catalog = {
         attack_type: [
             {
-                "technique_id":    t.technique_id,
-                "technique_name":  t.technique_name,
-                "tactic":          t.tactic,
-                "sub_technique":   t.sub_technique,
+                "technique_id":     t.technique_id,
+                "technique_name":   t.technique_name,
+                "tactic":           t.tactic,
+                "sub_technique":    t.sub_technique,
                 "confidence_score": t.confidence_score,
             }
             for t in techs
@@ -286,7 +323,7 @@ def api_mitre_catalog():
 
 
 # ---------------------------------------------------------------------------
-# Trust Score  — SOC Manager only
+# Trust Score — SOC Manager only
 # ---------------------------------------------------------------------------
 @app.route("/api/trust-scores")
 @role_required("view_trust_scores")
@@ -307,7 +344,7 @@ def api_trust_score_user(user: str):
 
 
 # ---------------------------------------------------------------------------
-# MTTD / MTTR metrics — SOC Manager only
+# Metrics — SOC Manager only
 # ---------------------------------------------------------------------------
 @app.route("/api/metrics")
 @role_required("view_metrics")
@@ -316,7 +353,7 @@ def api_metrics():
 
 
 # ---------------------------------------------------------------------------
-# Cyber Digital Twin (graph)
+# Cyber Digital Twin
 # ---------------------------------------------------------------------------
 @app.route("/api/graph")
 @login_required
@@ -325,7 +362,7 @@ def api_graph():
 
 
 # ---------------------------------------------------------------------------
-# Live feed simulator
+# Live feed
 # ---------------------------------------------------------------------------
 @app.route("/api/live-feed")
 @login_required
@@ -336,27 +373,21 @@ def api_live_feed():
 
 
 # ---------------------------------------------------------------------------
-# NEW v3: Threat hunting / search — real query engine
+# Threat hunting / search
 # ---------------------------------------------------------------------------
 @app.route("/api/search")
 @login_required
 def api_search():
-    user  = current_user()
-    query = request.args.get("q", "")
+    user    = current_user()
+    query   = request.args.get("q", "")
     results = search_incidents(query)
 
     if query:
-        record_audit(
-            user.username, user.to_public_dict()["role_label"],
-            "Ran threat hunt query", target=query,
-            detail=f"{len(results)} match(es)",
-        )
+        record_audit(user.username, user.to_public_dict()["role_label"],
+                     "Ran threat hunt query", target=query,
+                     detail=f"{len(results)} match(es)")
 
-    return jsonify({
-        "query": query,
-        "count": len(results),
-        "results": results,
-    })
+    return jsonify({"query": query, "count": len(results), "results": results})
 
 
 @app.route("/api/search/suggested")
@@ -366,7 +397,7 @@ def api_search_suggested():
 
 
 # ---------------------------------------------------------------------------
-# NEW v3: Audit trail — real, server-recorded actions
+# Audit trail
 # ---------------------------------------------------------------------------
 @app.route("/api/audit")
 @login_required
@@ -388,14 +419,15 @@ def api_risk_summary():
 
     top = sorted(incidents, key=lambda i: i.risk_score, reverse=True)[:10]
     return jsonify({
-        "risk_distribution": dist,
+        "risk_distribution":  dist,
         "top_risk_incidents": enrich_incidents(top),
-        "avg_risk_score":     round(sum(i.risk_score for i in incidents) / len(incidents), 2) if incidents else 0,
+        "avg_risk_score":     round(sum(i.risk_score for i in incidents) / len(incidents), 2)
+                              if incidents else 0,
     })
 
 
 # ---------------------------------------------------------------------------
-# Summary / dashboard overview
+# Dashboard summary
 # ---------------------------------------------------------------------------
 @app.route("/api/summary")
 @login_required
@@ -411,31 +443,28 @@ def api_summary():
     status_counts:   dict[str, int] = {}
 
     for inc in incidents:
-        severity_counts[inc.severity]   = severity_counts.get(inc.severity, 0) + 1
-        attack_counts[inc.attack_type]  = attack_counts.get(inc.attack_type, 0) + 1
-        risk_counts[inc.risk_level]     = risk_counts.get(inc.risk_level, 0) + 1
-        status_counts[inc.status]       = status_counts.get(inc.status, 0) + 1
+        severity_counts[inc.severity]  = severity_counts.get(inc.severity, 0) + 1
+        attack_counts[inc.attack_type] = attack_counts.get(inc.attack_type, 0) + 1
+        risk_counts[inc.risk_level]    = risk_counts.get(inc.risk_level, 0) + 1
+        status_counts[inc.status]      = status_counts.get(inc.status, 0) + 1
 
     multi_event = sum(1 for i in incidents if i.event_count > 1)
     chains      = sum(1 for i in incidents if i.chain_confidence > 0.5)
 
     payload = {
-        "total_events":         len(events),
-        "total_incidents":      len(incidents),
-        "total_users":          len(threads),
-        "repeat_offenders":     sum(1 for v in threads.values() if len(v) > 1),
+        "total_events":          len(events),
+        "total_incidents":       len(incidents),
+        "total_users":           len(threads),
+        "repeat_offenders":      sum(1 for v in threads.values() if len(v) > 1),
         "multi_event_incidents": multi_event,
-        "attack_chain_count":   chains,
-        "severity_breakdown":   severity_counts,
+        "attack_chain_count":    chains,
+        "severity_breakdown":    severity_counts,
         "attack_type_breakdown": attack_counts,
-        "risk_level_breakdown": risk_counts,
-        "status_breakdown":     status_counts,
-        "overall_mttd_mttr":    report["overall"],
+        "risk_level_breakdown":  risk_counts,
+        "status_breakdown":      status_counts,
+        "overall_mttd_mttr":     report["overall"],
     }
 
-    # Trust-score leaderboard fields are manager-only data, so they're only
-    # included in the summary payload for managers (analysts get their own
-    # /api/incidents-driven view of the same incidents without it).
     user = current_user()
     if user and can(user.role, "view_trust_scores"):
         board = get_leaderboard(ascending=True)
@@ -446,7 +475,7 @@ def api_summary():
 
 
 if __name__ == "__main__":
-    print("Cyber Control Tower backend starting (v3 — with auth)...")
+    print("Cyber Control Tower backend starting (v4 — auth + sign-up)...")
     print(f"Frontend served from: {FRONTEND_DIR}")
-    print("Demo accounts: analyst/analyst123 (Security Analyst), manager/manager123 (SOC Manager)")
+    print("Demo accounts: analyst/analyst123 | manager/manager123")
     app.run(debug=True, port=5000)

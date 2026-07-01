@@ -1287,10 +1287,14 @@ async function api(path, options = {}) {
 }
 
 /* ── Global state ── */
-let currentUser = null;        // { username, display_name, role, role_label }
-let permissions = {};          // capability map from /api/auth/me
-let loginError = "";
-let loginSubmitting = false;
+
+/* ── Global auth state ── */
+let currentUser    = null;
+let permissions    = {};
+let authMode       = "login";     // "login" | "register"
+let authError      = "";
+let authSuccess    = "";
+let authSubmitting = false;
 
 let activePage = "command";
 let incidents = [];
@@ -1359,90 +1363,238 @@ function fmtMinutes(mins) {
 
 function debounce(fn, ms) {
   let t = null;
-  return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), ms);
-  };
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
-/* ── Login screen ── */
+/* ══════════════════════════════════════════════════════════
+   AUTH SCREEN  (login + register in one card with tabs)
+══════════════════════════════════════════════════════════ */
 function renderLogin() {
   app.innerHTML = `
     <div class="login-shell">
       <div class="login-card">
+
         <div class="login-brand">
           <div class="logo">⛭</div>
           <h1>Cyber Control Tower</h1>
         </div>
         <p class="subtitle">Sign in to access the SOC console.</p>
 
-        ${loginError ? `<div class="login-error">${escapeHtml(loginError)}</div>` : ""}
-
-        <form id="loginForm">
-          <div class="field">
-            <label for="usernameInput">Username</label>
-            <input id="usernameInput" name="username" autocomplete="username" />
-          </div>
-          <div class="field">
-            <label for="passwordInput">Password</label>
-            <input id="passwordInput" name="password" type="password" autocomplete="current-password" />
-          </div>
-          <button class="login-submit" type="submit" ${loginSubmitting ? "disabled" : ""}>
-            ${loginSubmitting ? "Signing in…" : "Sign in"}
+        <!-- Tab switcher -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--r);padding:4px;margin-bottom:20px;">
+          <button
+            id="tabLogin"
+            style="border:0;border-radius:6px;padding:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
+                   background:${authMode==='login' ? 'var(--bg-panel)' : 'transparent'};
+                   color:${authMode==='login' ? 'var(--accent)' : 'var(--text-dim)'};
+                   ${authMode==='login' ? 'border:1px solid var(--border-accent);' : ''}">
+            Sign in
           </button>
-        </form>
+          <button
+            id="tabRegister"
+            style="border:0;border-radius:6px;padding:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
+                   background:${authMode==='register' ? 'var(--bg-panel)' : 'transparent'};
+                   color:${authMode==='register' ? 'var(--accent)' : 'var(--text-dim)'};
+                   ${authMode==='register' ? 'border:1px solid var(--border-accent);' : ''}">
+            Sign up
+          </button>
+        </div>
 
-        <div class="login-divider"></div>
-        <p class="demo-label">Demo accounts</p>
-        ${demoAccounts.map((acc) => `
-          <div class="demo-row">
-            <div class="demo-row-id">
-              <b>${escapeHtml(acc.role_label)}</b>
-              <code>${escapeHtml(acc.username)} / ${escapeHtml(acc.password)}</code>
+        <!-- Error message -->
+        ${authError   ? `<div class="login-error">${escapeHtml(authError)}</div>`   : ""}
+        ${authSuccess ? `<div style="margin-bottom:14px;padding:10px 12px;border-radius:var(--r);background:var(--sev-low-bg);border:1px solid var(--sev-low-bd);color:var(--sev-low);font-size:12px;font-family:var(--font-mono);">${escapeHtml(authSuccess)}</div>` : ""}
+
+        <!-- SIGN IN FORM -->
+        ${authMode === "login" ? `
+          <div id="loginForm">
+            <div class="field">
+              <label for="loginUsername">Username</label>
+              <input id="loginUsername" autocomplete="username" placeholder="analyst" />
             </div>
-            <button class="demo-use-btn" data-fill-demo="${escapeHtml(acc.username)}|${escapeHtml(acc.password)}">Use</button>
+            <div class="field">
+              <label for="loginPassword">Password</label>
+              <input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" />
+            </div>
+            <button class="login-submit" id="loginBtn" ${authSubmitting ? "disabled" : ""}>
+              ${authSubmitting ? "Signing in…" : "Sign in"}
+            </button>
           </div>
-        `).join("")}
+
+          <div class="login-divider"></div>
+          <p class="demo-label">Demo accounts</p>
+          ${demoAccounts.map((acc) => `
+            <div class="demo-row">
+              <div class="demo-row-id">
+                <b>${escapeHtml(acc.role_label)}</b>
+                <code>${escapeHtml(acc.username)} / ${escapeHtml(acc.password)}</code>
+              </div>
+              <button class="demo-use-btn"
+                data-demo-user="${escapeHtml(acc.username)}"
+                data-demo-pass="${escapeHtml(acc.password)}">Use</button>
+            </div>
+          `).join("")}
+        ` : ""}
+
+        <!-- SIGN UP FORM -->
+        ${authMode === "register" ? `
+          <div id="registerForm">
+            <div class="field">
+              <label for="regUsername">Username <span style="color:var(--sev-critical)">*</span></label>
+              <input id="regUsername" autocomplete="username" placeholder="e.g. john_doe (min. 3 chars)" />
+            </div>
+            <div class="field">
+              <label for="regDisplay">Display name</label>
+              <input id="regDisplay" placeholder="e.g. John Smith (optional)" />
+            </div>
+            <div class="field">
+              <label for="regRole">Role <span style="color:var(--sev-critical)">*</span></label>
+              <select id="regRole" style="width:100%;border:1px solid var(--border);color:var(--text-main);background:var(--bg-raised);border-radius:var(--r);outline:none;padding:11px 12px;font-size:14px;">
+                <option value="analyst">Security Analyst</option>
+                <option value="manager">SOC Manager</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="regPassword">Password <span style="color:var(--sev-critical)">*</span></label>
+              <input id="regPassword" type="password" autocomplete="new-password" placeholder="Min. 6 characters" />
+            </div>
+            <button class="login-submit" id="registerBtn" ${authSubmitting ? "disabled" : ""}>
+              ${authSubmitting ? "Creating account…" : "Create account"}
+            </button>
+          </div>
+        ` : ""}
+
       </div>
     </div>
   `;
 
-  const form = document.getElementById("loginForm");
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const username = document.getElementById("usernameInput").value.trim();
-    const password = document.getElementById("passwordInput").value;
-    await submitLogin(username, password);
+  /* ── Tab switching ── */
+  document.getElementById("tabLogin").addEventListener("click", () => {
+    authMode = "login"; authError = ""; authSuccess = ""; renderLogin();
+  });
+  document.getElementById("tabRegister").addEventListener("click", () => {
+    authMode = "register"; authError = ""; authSuccess = ""; renderLogin();
   });
 
-  document.querySelectorAll("[data-fill-demo]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const [username, password] = btn.dataset.fillDemo.split("|");
-      await submitLogin(username, password);
+  /* ── Sign in ── */
+  if (authMode === "login") {
+    const loginBtn = document.getElementById("loginBtn");
+
+    loginBtn.addEventListener("click", () => {
+      const username = (document.getElementById("loginUsername").value || "").trim();
+      const password =  document.getElementById("loginPassword").value || "";
+      submitLogin(username, password);
     });
-  });
 
-  const usernameInput = document.getElementById("usernameInput");
-  if (usernameInput) usernameInput.focus();
+    // Enter key in password field triggers login
+    document.getElementById("loginPassword").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") loginBtn.click();
+    });
+
+    /*
+     * "Use" button: FILLS the form fields only — does NOT auto-login.
+     * The user reviews the credentials and clicks "Sign in" themselves.
+     */
+    document.querySelectorAll("[data-demo-user]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.getElementById("loginUsername").value = btn.dataset.demoUser;
+        document.getElementById("loginPassword").value = btn.dataset.demoPass;
+        document.getElementById("loginBtn").focus();
+      });
+    });
+
+    document.getElementById("loginUsername").focus();
+  }
+
+  /* ── Sign up ── */
+  if (authMode === "register") {
+    document.getElementById("registerBtn").addEventListener("click", () => {
+      const username    = (document.getElementById("regUsername").value || "").trim();
+      const displayName = (document.getElementById("regDisplay").value  || "").trim();
+      const role        =  document.getElementById("regRole").value      || "analyst";
+      const password    =  document.getElementById("regPassword").value  || "";
+      submitRegister(username, displayName, role, password);
+    });
+
+    document.getElementById("regUsername").focus();
+  }
 }
 
+/* ── Client-side validation before hitting the API ── */
+function validateLogin(username, password) {
+  if (!username)        return "Please enter your username.";
+  if (!password)        return "Please enter your password.";
+  return null;
+}
+
+function validateRegister(username, password) {
+  if (!username)           return "Username is required.";
+  if (username.length < 3) return "Username must be at least 3 characters.";
+  if (!password)           return "Password is required.";
+  if (password.length < 6) return "Password must be at least 6 characters.";
+  return null;
+}
+
+/* ── Submit login ── */
 async function submitLogin(username, password) {
-  loginSubmitting = true;
-  loginError = "";
+  const validationError = validateLogin(username, password);
+  if (validationError) {
+    authError = validationError;
+    renderLogin();
+    return;
+  }
+
+  authSubmitting = true;
+  authError      = "";
   renderLogin();
+
   try {
     const data = await api("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ username, password }),
     });
-    currentUser = data.user;
-    permissions = data.permissions || {};
-    loginSubmitting = false;
+    currentUser    = data.user;
+    permissions    = data.permissions || {};
+    authSubmitting = false;
+    authError      = "";
+    authSuccess    = "";
     resetWorkspaceState();
     render();
   } catch (err) {
-    loginSubmitting = false;
-    loginError = err.message || "Sign in failed.";
+    authSubmitting = false;
+    authError      = err.message || "Sign in failed. Check your username and password.";
+    renderLogin();
+  }
+}
+
+/* ── Submit register ── */
+async function submitRegister(username, displayName, role, password) {
+  const validationError = validateRegister(username, password);
+  if (validationError) {
+    authError = validationError;
+    renderLogin();
+    return;
+  }
+
+  authSubmitting = true;
+  authError      = "";
+  renderLogin();
+
+  try {
+    const data = await api("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ username, display_name: displayName, role, password }),
+    });
+    // Backend auto-logs in — same response shape as login
+    currentUser    = data.user;
+    permissions    = data.permissions || {};
+    authSubmitting = false;
+    authError      = "";
+    authSuccess    = "";
+    resetWorkspaceState();
+    render();
+  } catch (err) {
+    authSubmitting = false;
+    authError      = err.message || "Could not create account. Please try again.";
     renderLogin();
   }
 }
@@ -1451,28 +1603,32 @@ async function handleLogout() {
   try { await api("/api/auth/logout", { method: "POST" }); } catch (e) { /* ignore */ }
   currentUser = null;
   permissions = {};
+  authMode    = "login";
+  authError   = "";
+  authSuccess = "";
   resetWorkspaceState();
   render();
 }
 
 function resetWorkspaceState() {
-  activePage = "command";
-  incidents = [];
+  activePage      = "command";
+  incidents       = [];
   incidentsLoaded = false;
-  incidentsError = "";
-  selectedId = null;
-  query = "";
-  severityFilter = "All";
-  notice = "";
-  summary = null;
-  graphData = null;
-  mitreHeatmap = null;
-  trustBoard = null;
-  metricsReport = null;
-  auditLog = null;
-  huntQuery = "";
-  huntResults = null;
+  incidentsError  = "";
+  selectedId      = null;
+  query           = "";
+  severityFilter  = "All";
+  notice          = "";
+  summary         = null;
+  graphData       = null;
+  mitreHeatmap    = null;
+  trustBoard      = null;
+  metricsReport   = null;
+  auditLog        = null;
+  huntQuery       = "";
+  huntResults     = null;
 }
+
 
 async function bootstrap() {
   try {
