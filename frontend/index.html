@@ -1,0 +1,3230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cyber Control Tower — SOC Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ================================================================
+   CYBER CONTROL TOWER — Design System
+   ────────────────────────────────────────────────────────────────
+   Dark ops-room aesthetic. IBM Plex Mono for data/labels, Inter for
+   UI copy. Amber is the single brand signal; cyan is the secondary
+   data accent; severity colors are semantic, not decorative.
+   ================================================================ */
+
+:root {
+  --bg-base:   #090C13;
+  --bg-panel:  #0D1119;
+  --bg-raised: #131A24;
+  --border:         #1B2332;
+  --border-accent:  rgba(245,166,35,0.22);
+  --border-cyan:    rgba(34,211,238,0.18);
+  --text-main:  #E2E8EE;
+  --text-dim:   #67778A;
+  --text-faint: #3D4A58;
+  --accent:       #F5A623;
+  --accent-hover: #FFBE45;
+  --accent-glow:  rgba(245,166,35,0.13);
+  --cyan:       #22D3EE;
+  --cyan-glow:  rgba(34,211,238,0.10);
+  --sev-critical: #E5484D;
+  --sev-crit-bg:  rgba(229,72,77,0.11);
+  --sev-crit-bd:  rgba(229,72,77,0.25);
+  --sev-high:     #F5A623;
+  --sev-high-bg:  rgba(245,166,35,0.11);
+  --sev-high-bd:  rgba(245,166,35,0.25);
+  --sev-medium:   #E8C547;
+  --sev-med-bg:   rgba(232,197,71,0.11);
+  --sev-med-bd:   rgba(232,197,71,0.25);
+  --sev-low:      #3FB68B;
+  --sev-low-bg:   rgba(63,182,139,0.11);
+  --sev-low-bd:   rgba(63,182,139,0.25);
+  --font-ui:   'Inter', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+  --r:    8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-pill: 999px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg-base);
+  color: var(--text-main);
+  font-family: var(--font-ui);
+}
+
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.013) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.013) 1px, transparent 1px);
+  background-size: 32px 32px;
+  z-index: 0;
+}
+
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 14% 0%, rgba(245,166,35,0.05), transparent 38%),
+    radial-gradient(circle at 87% 6%, rgba(34,211,238,0.05), transparent 34%);
+  z-index: 0;
+}
+
+button, input, select { font: inherit; }
+::selection { background: var(--accent); color: #0A0900; }
+a { color: var(--accent); text-decoration: none; }
+
+/* ═══════════════════════════════════════
+   LOGIN SCREEN
+═══════════════════════════════════════ */
+.login-shell {
+  min-height: 100vh;
+  display: grid; place-items: center;
+  position: relative; z-index: 1;
+  padding: 24px;
+}
+
+.login-card {
+  width: 100%; max-width: 428px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 28px;
+}
+
+.login-brand {
+  display: flex; align-items: center; gap: 11px;
+  margin-bottom: 4px;
+}
+
+.login-brand .logo {
+  width: 34px; height: 34px;
+  border-radius: var(--r);
+  display: grid; place-items: center;
+  font-size: 16px;
+  color: var(--bg-base);
+  background: var(--accent);
+  box-shadow: 0 0 22px var(--accent-glow);
+  flex-shrink: 0;
+}
+
+.login-brand h1 {
+  margin: 0;
+  font-size: 14px; font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.login-card > p.subtitle {
+  margin: 14px 0 22px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.field { margin-bottom: 14px; }
+
+.field label {
+  display: block;
+  color: var(--text-dim);
+  font-size: 10px; font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.field input {
+  width: 100%;
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  background: var(--bg-raised);
+  border-radius: var(--r);
+  outline: none;
+  padding: 11px 12px; font-size: 14px;
+  transition: border-color 0.15s;
+}
+
+.field input:focus { border-color: var(--accent); }
+
+.login-error {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: var(--r);
+  background: var(--sev-crit-bg);
+  border: 1px solid var(--sev-crit-bd);
+  color: var(--sev-critical);
+  font-size: 12px; font-family: var(--font-mono);
+}
+
+.login-submit {
+  width: 100%;
+  border: 0; border-radius: var(--r);
+  padding: 12px 13px;
+  cursor: pointer; font-weight: 700; font-size: 14px;
+  background: var(--accent);
+  color: #0A0900;
+  transition: all 0.15s ease;
+}
+
+.login-submit:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: 0 0 22px var(--accent-glow);
+}
+
+.login-submit:disabled { opacity: 0.6; cursor: default; }
+
+.login-divider {
+  margin: 22px 0 16px;
+  border-top: 1px solid var(--border);
+  position: relative;
+}
+
+.demo-label {
+  color: var(--text-faint);
+  font-size: 9px; font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.13em; text-transform: uppercase;
+  margin-bottom: 11px;
+}
+
+.demo-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.demo-row + .demo-row { border-top: 1px solid var(--border); }
+
+.demo-row-id b {
+  display: block; color: var(--text-main); font-size: 13px;
+}
+
+.demo-row-id code {
+  display: block; margin-top: 2px;
+  color: var(--accent); font-family: var(--font-mono); font-size: 11px;
+}
+
+.demo-use-btn {
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text-main);
+  border-radius: var(--r);
+  padding: 7px 12px;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.demo-use-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.login-back {
+  display: block; text-align: center;
+  margin-top: 18px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.login-back:hover { color: var(--text-main); }
+
+/* ═══════════════════════════════════════
+   APP SHELL
+═══════════════════════════════════════ */
+.cct-app {
+  min-height: 100vh;
+  display: flex;
+  position: relative;
+  z-index: 1;
+}
+
+/* ═══════════════════════════════════════
+   SIDEBAR
+═══════════════════════════════════════ */
+.sidebar {
+  width: 248px;
+  min-height: 100vh;
+  position: sticky;
+  top: 0; height: 100vh;
+  padding: 16px 11px 16px 12px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+/* Hamburger button that opens the sidebar on narrow viewports.
+   Hidden by default; only shown under the 1180px breakpoint below. */
+.sidebar-menu-btn {
+  display: none;
+  position: fixed;
+  top: 14px; left: 14px;
+  z-index: 40;
+  width: 40px; height: 40px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  cursor: pointer;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.sidebar-menu-btn span {
+  display: block;
+  width: 18px; height: 2px;
+  background: var(--text-main);
+  border-radius: 2px;
+}
+
+.sidebar-close-btn {
+  display: none;
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+/* Dark overlay behind the sidebar when it's open as a drawer on
+   narrow viewports. Hidden on desktop; toggled via .is-visible. */
+.sidebar-backdrop {
+  display: none;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: rgba(255,255,255,0.018);
+  text-decoration: none;
+}
+
+.logo {
+  width: 40px; height: 40px;
+  border-radius: var(--r);
+  display: grid; place-items: center;
+  font-size: 19px;
+  color: var(--bg-base);
+  background: var(--accent);
+  box-shadow: 0 0 22px var(--accent-glow);
+  flex-shrink: 0;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 13px; font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.07em;
+  color: var(--text-main);
+  text-transform: uppercase;
+}
+
+.brand p {
+  margin: 2px 0 0;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+.user-card {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-raised);
+}
+
+.user-card-id b {
+  display: block; color: var(--text-main); font-size: 12px;
+}
+
+.user-card-id span {
+  display: block; margin-top: 2px;
+  color: var(--accent); font-size: 10px;
+  font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em;
+}
+
+.logout-btn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: var(--r);
+  padding: 6px 9px;
+  font-size: 11px; font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.logout-btn:hover { color: var(--sev-critical); border-color: var(--sev-crit-bd); background: var(--sev-crit-bg); }
+
+nav {
+  margin-top: 16px;
+  display: flex; flex-direction: column;
+  gap: 2px;
+}
+
+.nav-section-label {
+  margin: 14px 0 4px 11px;
+  color: var(--text-faint);
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 0.13em; text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+nav button {
+  width: 100%;
+  padding: 9px 11px;
+  border: 0;
+  border-radius: var(--r);
+  color: var(--text-dim);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px; font-weight: 500;
+  transition: all 0.15s ease;
+  position: relative;
+  gap: 8px;
+}
+
+nav button:hover { background: var(--bg-raised); color: var(--text-main); }
+nav button:focus { outline: none; }
+nav button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.nav-active {
+  background: var(--accent-glow) !important;
+  color: var(--accent) !important;
+  font-weight: 600 !important;
+}
+
+.nav-active::before {
+  content: '';
+  position: absolute; left: 0; top: 5px; bottom: 5px;
+  width: 3px;
+  background: var(--accent);
+  border-radius: var(--r-pill);
+}
+
+nav button span.badge {
+  background: var(--sev-crit-bg);
+  color: var(--sev-critical);
+  border: 1px solid var(--sev-crit-bd);
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+nav button .nav-label { display: flex; align-items: center; gap: 7px; overflow: hidden; }
+nav button .nav-lock { color: var(--text-faint); font-size: 11px; flex-shrink: 0; }
+
+.sidebar-note {
+  margin-top: auto;
+  padding: 13px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-accent);
+  background: var(--accent-glow);
+}
+
+.sidebar-note b {
+  color: var(--accent);
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  display: block; margin-bottom: 6px;
+  font-family: var(--font-mono);
+}
+
+.sidebar-note p {
+  color: var(--text-dim);
+  line-height: 1.6; font-size: 12px;
+  margin: 0;
+}
+
+/* ═══════════════════════════════════════
+   MAIN CONTENT
+═══════════════════════════════════════ */
+.main {
+  flex: 1; min-width: 0;
+  padding: 20px 22px;
+  overflow-y: auto;
+}
+
+/* ═══════════════════════════════════════
+   TOPBAR
+═══════════════════════════════════════ */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px; align-items: center;
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar h1 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 24px; letter-spacing: -0.04em; font-weight: 800;
+}
+
+.topbar p { margin: 5px 0 0; color: var(--text-dim); font-size: 13px; }
+
+.top-actions {
+  display: flex; align-items: center;
+  gap: 8px; flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.top-actions > span {
+  color: var(--text-dim);
+  font-family: var(--font-mono); font-size: 11px;
+  padding: 8px 10px;
+  border-radius: var(--r);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+
+.live-clock {
+  color: var(--accent) !important;
+  background: var(--accent-glow) !important;
+  border: 1px solid var(--border-accent) !important;
+  letter-spacing: 0.08em !important;
+  font-weight: 500 !important;
+}
+
+/* ═══════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════ */
+.primary-btn, .ghost-btn {
+  border: 0; border-radius: var(--r);
+  padding: 9px 13px;
+  cursor: pointer; font-weight: 600; font-size: 13px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.primary-btn {
+  background: var(--accent);
+  color: #0A0900; font-weight: 700;
+}
+
+.primary-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: 0 0 22px var(--accent-glow);
+}
+
+.primary-btn:disabled { opacity: 0.55; cursor: default; }
+
+.ghost-btn {
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.ghost-btn:hover { color: var(--text-main); border-color: var(--text-dim); background: var(--bg-raised); }
+
+/* ═══════════════════════════════════════
+   NOTICE / ERROR
+═══════════════════════════════════════ */
+.notice {
+  margin: -6px 0 16px;
+  padding: 9px 13px;
+  border-radius: var(--r);
+  color: var(--accent);
+  background: var(--accent-glow);
+  border: 1px solid var(--border-accent);
+  font-size: 12px; font-family: var(--font-mono);
+}
+
+.notice.error {
+  color: var(--sev-critical);
+  background: var(--sev-crit-bg);
+  border-color: var(--sev-crit-bd);
+}
+
+/* ═══════════════════════════════════════
+   STATS GRID
+═══════════════════════════════════════ */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 12px; margin-bottom: 18px;
+}
+
+.stat-card {
+  position: relative;
+  padding: 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.stat-card:not(.danger):not(.warning):not(.success):not(.cyan) { border-top-color: var(--cyan); }
+.stat-card.cyan    { border-top-color: var(--cyan); }
+.stat-card.danger  { border-top-color: var(--sev-critical); }
+.stat-card.warning { border-top-color: var(--sev-high); }
+.stat-card.success { border-top-color: var(--sev-low); }
+
+.stat-title {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 10px; font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.13em; text-transform: uppercase;
+}
+
+.stat-card h3 {
+  margin: 10px 0 0;
+  color: var(--text-main);
+  font-size: 30px; letter-spacing: -0.05em; font-weight: 800;
+  font-family: var(--font-mono);
+}
+
+.stat-subtitle { margin: 5px 0 0; color: var(--text-dim); font-size: 12px; }
+
+.stat-dot {
+  position: absolute; top: 14px; right: 14px;
+  width: 8px; height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--cyan);
+  animation: dotPulse 2.2s infinite;
+}
+
+.stat-card.danger  .stat-dot { background: var(--sev-critical); }
+.stat-card.warning .stat-dot { background: var(--sev-high); }
+.stat-card.success .stat-dot { background: var(--sev-low); }
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.35; transform: scale(0.8); }
+}
+
+/* ═══════════════════════════════════════
+   WORKSPACE / LAYOUT GRIDS
+═══════════════════════════════════════ */
+.workspace {
+  display: grid;
+  grid-template-columns: 346px minmax(0, 1fr) 326px;
+  gap: 14px; align-items: start;
+}
+
+.module-layout {
+  display: grid;
+  grid-template-columns: 346px minmax(0, 1fr) 326px;
+  gap: 14px; align-items: start;
+}
+
+.left-column, .center-column, .right-column { display: grid; gap: 14px; align-content: start; }
+
+.module-grid { display: grid; gap: 14px; margin-top: 14px; }
+.module-grid.two-column { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+
+/* ═══════════════════════════════════════
+   PANELS
+═══════════════════════════════════════ */
+.panel {
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  border-radius: var(--r-xl);
+  padding: 14px;
+}
+
+.panel-title {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; margin-bottom: 13px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-title h3 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+.panel-title.compact { margin-bottom: 10px; padding-bottom: 0; border-bottom: 0; }
+.panel-title.compact h3 { font-size: 11px; }
+
+.panel-title p { margin: 3px 0 0; color: var(--text-dim); font-size: 11px; }
+
+.panel-title > span:not(.panel-icon) {
+  margin: 0;
+  color: var(--text-dim); font-size: 11px;
+}
+
+.panel-icon {
+  display: grid; place-items: center;
+  width: 28px; height: 28px;
+  border-radius: var(--r);
+  background: var(--bg-raised);
+  color: var(--accent) !important;
+  margin: 0 !important;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.lock-banner {
+  display: flex; align-items: center; gap: 12px;
+  padding: 22px;
+  border: 1px dashed var(--border);
+  border-radius: var(--r-xl);
+  background: var(--bg-panel);
+}
+
+.lock-banner .lock-icon {
+  width: 40px; height: 40px; flex-shrink: 0;
+  display: grid; place-items: center;
+  border-radius: var(--r-lg);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  font-size: 18px;
+  color: var(--text-dim);
+}
+
+.lock-banner h3 { margin: 0; font-size: 14px; color: var(--text-main); }
+.lock-banner p { margin: 4px 0 0; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+
+/* ═══════════════════════════════════════
+   FILTERS / SEARCH
+═══════════════════════════════════════ */
+.filters {
+  display: grid;
+  grid-template-columns: 1fr 96px;
+  gap: 8px; margin-bottom: 11px;
+}
+
+.filters input, .filters select {
+  width: 100%;
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  background: var(--bg-raised);
+  border-radius: var(--r);
+  outline: none;
+  padding: 9px 10px; font-size: 13px;
+  transition: border-color 0.15s;
+}
+
+.filters input:focus, .filters select:focus { border-color: var(--accent); }
+.filters input::placeholder { color: var(--text-faint); }
+.filters select option { background: var(--bg-raised); }
+
+/* ═══════════════════════════════════════
+   INCIDENT LIST
+═══════════════════════════════════════ */
+.incident-list { display: grid; gap: 8px; max-height: 640px; overflow-y: auto; padding-right: 2px; }
+
+.incident-item {
+  width: 100%; text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-raised);
+  padding: 11px;
+  cursor: pointer; color: inherit;
+  transition: all 0.15s ease;
+}
+
+.incident-item:hover {
+  border-color: rgba(255,255,255,0.14);
+  background: #19212F;
+  transform: translateY(-1px);
+}
+
+.incident-item.active {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.incident-top {
+  display: flex; justify-content: space-between;
+  gap: 10px; align-items: flex-start;
+}
+
+.incident-meta {
+  display: flex; gap: 7px; align-items: center;
+  margin-bottom: 5px; flex-wrap: wrap;
+}
+
+.incident-item h4 {
+  margin: 0;
+  color: var(--text-main);
+  line-height: 1.35; font-size: 13px; font-weight: 600;
+}
+
+/* ═══════════════════════════════════════
+   SEVERITY / STATUS BADGES
+═══════════════════════════════════════ */
+.sev {
+  display: inline-flex; align-items: center;
+  border-radius: var(--r-pill); border: 1px solid;
+  padding: 2px 7px;
+  font-size: 9px; font-weight: 800;
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em; text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sev-critical { color:var(--sev-critical); background:var(--sev-crit-bg); border-color:var(--sev-crit-bd); }
+.sev-high     { color:var(--sev-high);     background:var(--sev-high-bg); border-color:var(--sev-high-bd); }
+.sev-medium   { color:var(--sev-medium);   background:var(--sev-med-bg);  border-color:var(--sev-med-bd);  }
+.sev-low      { color:var(--sev-low);      background:var(--sev-low-bg);  border-color:var(--sev-low-bd);  }
+
+.status-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  border-radius: var(--r-pill); border: 1px solid var(--border);
+  background: var(--bg-raised);
+  padding: 2px 8px;
+  font-size: 9px; font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.status-pill.status-open          { color: var(--text-dim); }
+.status-pill.status-investigating { color: var(--cyan); border-color: var(--border-cyan); background: var(--cyan-glow); }
+.status-pill.status-contained     { color: var(--sev-low); border-color: var(--sev-low-bd); background: var(--sev-low-bg); }
+.status-pill.status-resolved      { color: var(--accent); border-color: var(--border-accent); background: var(--accent-glow); }
+
+/* ═══════════════════════════════════════
+   RISK BOX
+═══════════════════════════════════════ */
+.risk-box {
+  flex: 0 0 auto; min-width: 50px;
+  text-align: center;
+  border-radius: var(--r);
+  padding: 7px 8px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+}
+
+.risk-box strong {
+  display: block;
+  color: var(--text-main);
+  font-size: 17px; font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.risk-box span {
+  color: var(--text-dim);
+  font-size: 9px; text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-family: var(--font-mono);
+}
+
+/* ═══════════════════════════════════════
+   INCIDENT GRID (mini meta)
+═══════════════════════════════════════ */
+.incident-grid {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 5px; margin-top: 9px;
+}
+
+.incident-grid div {
+  padding: 6px 7px;
+  border-radius: var(--r);
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+}
+
+.incident-grid span {
+  display: block;
+  color: var(--text-dim);
+  font-size: 9px; font-family: var(--font-mono);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+
+.incident-grid b {
+  display: block; margin-top: 3px;
+  color: var(--text-main);
+  font-size: 11px; font-family: var(--font-mono);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ═══════════════════════════════════════
+   DETAIL CARD
+═══════════════════════════════════════ */
+.detail-header {
+  display: flex; justify-content: space-between;
+  gap: 16px; align-items: flex-start;
+}
+
+.tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+
+.soft-tag {
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text-dim);
+  border-radius: var(--r-pill);
+  padding: 3px 8px;
+  font-size: 10px; font-family: var(--font-mono);
+}
+
+.detail-panel h2 {
+  color: var(--text-main);
+  margin: 6px 0 0;
+  font-size: 19px; letter-spacing: -0.03em; font-weight: 700;
+  line-height: 1.3;
+}
+
+.detail-panel p.summary {
+  color: var(--text-dim);
+  line-height: 1.65; margin: 8px 0 0; font-size: 13px;
+}
+
+.detail-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: center; flex-wrap: wrap; }
+
+.status-select {
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text-main);
+  border-radius: var(--r);
+  padding: 8px 10px; font-size: 12px;
+  font-family: var(--font-mono);
+}
+
+/* ═══════════════════════════════════════
+   RESPONSE MODE TOGGLE
+═══════════════════════════════════════ */
+.response-panel .panel-title { margin-bottom: 14px; }
+
+.response-mode-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border-radius: var(--r-lg);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+
+.response-mode-row.is-enforce {
+  border-color: var(--sev-crit-bd);
+  background: var(--sev-crit-bg);
+}
+
+.response-mode-copy b {
+  display: block; color: var(--text-main); font-size: 13px;
+}
+
+.response-mode-copy p {
+  margin: 4px 0 0; color: var(--text-dim); font-size: 11.5px; line-height: 1.5;
+  max-width: 420px;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 46px; height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.toggle-switch.is-on {
+  background: var(--sev-critical);
+  border-color: var(--sev-critical);
+}
+
+.toggle-switch:disabled { opacity: 0.5; cursor: default; }
+
+.toggle-switch .knob {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--text-main);
+  transition: transform 0.15s;
+}
+
+.toggle-switch.is-on .knob { transform: translateX(20px); }
+
+.response-mode-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  font-size: 10px; font-weight: 700; font-family: var(--font-mono);
+  letter-spacing: 0.06em; text-transform: uppercase;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.response-mode-badge.is-enforce {
+  color: var(--sev-critical);
+  border-color: var(--sev-crit-bd);
+  background: var(--sev-crit-bg);
+}
+
+.info-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 8px; margin-top: 14px;
+}
+
+.info-tile {
+  padding: 11px;
+  border-radius: var(--r);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+
+.info-tile span {
+  display: block; color: var(--text-dim);
+  font-size: 9px; font-family: var(--font-mono);
+  text-transform: uppercase; letter-spacing: 0.1em;
+}
+
+.info-tile strong {
+  display: block; color: var(--text-main);
+  margin-top: 5px; font-size: 12px;
+  font-family: var(--font-mono);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ═══════════════════════════════════════
+   RISK GAUGE
+═══════════════════════════════════════ */
+.middle-grid {
+  display: grid; grid-template-columns: 235px minmax(0,1fr);
+  gap: 14px;
+}
+
+.risk-gauge-card {
+  min-height: 275px; padding: 16px;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  display: grid; align-content: center;
+  justify-items: center; text-align: center;
+}
+
+.gauge-wrap {
+  position: relative; width: 155px; height: 155px;
+  border-radius: 50%; display: grid; place-items: center;
+  overflow: hidden;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+}
+
+.gauge-track, .gauge-fill {
+  position: absolute; inset: 9px; border-radius: 50%;
+  border: 10px solid var(--bg-raised);
+}
+
+.gauge-fill {
+  border-color: var(--accent) transparent transparent transparent;
+  transition: transform .38s cubic-bezier(.4,0,.2,1);
+}
+
+.gauge-inner {
+  position: relative; width: 107px; height: 107px;
+  border-radius: 50%;
+  background: var(--bg-panel);
+  display: grid; place-items: center; align-content: center;
+  border: 1px solid var(--border);
+}
+
+.gauge-inner strong {
+  color: var(--text-main); font-size: 35px;
+  letter-spacing: -0.07em;
+  font-family: var(--font-mono); font-weight: 700;
+}
+
+.gauge-inner span {
+  color: var(--text-dim); font-size: 9px;
+  font-family: var(--font-mono); text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.risk-gauge-card p {
+  color: var(--text-dim); font-size: 12px;
+  line-height: 1.6; max-width: 195px; margin-top: 13px;
+}
+
+/* ═══════════════════════════════════════
+   GRAPH / DIGITAL TWIN
+═══════════════════════════════════════ */
+.graph-panel { min-height: 275px; }
+
+#cyGraph {
+  height: 460px;
+  border-radius: var(--r);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+
+.graph-legend {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.graph-legend span {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--text-dim); font-size: 11px;
+}
+
+.legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+/* ═══════════════════════════════════════
+   CHARTS
+═══════════════════════════════════════ */
+.charts-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 14px; margin-top: 14px;
+}
+
+.chart-card { min-height: 180px; }
+
+.line-chart {
+  width: 100%; height: 110px;
+  stroke: var(--cyan); stroke-width: 2;
+  fill: none;
+}
+
+.bars { display: grid; gap: 9px; margin-top: 4px; }
+
+.bar-row { display: grid; grid-template-columns: 70px 1fr 32px; align-items: center; gap: 9px; }
+.bar-row span { color: var(--text-dim); font-size: 12px; }
+.bar-row div { height: 7px; border-radius: var(--r-pill); background: var(--bg-raised); overflow: hidden; }
+.bar-row i { display: block; height: 100%; background: var(--accent); border-radius: var(--r-pill); }
+.bar-row b { color: var(--text-main); font-size: 12px; font-family: var(--font-mono); text-align: right; }
+
+/* ═══════════════════════════════════════
+   SOURCES / BACKEND PANEL
+═══════════════════════════════════════ */
+.source-list { display: grid; gap: 8px; }
+
+.source-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 10px;
+  border-radius: var(--r);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+
+.source-row > div { display: flex; align-items: center; gap: 9px; }
+.source-row b { color: var(--text-main); font-size: 12px; display: block; }
+.source-row p { margin: 1px 0 0; color: var(--text-dim); font-size: 11px; }
+.source-row > span { color: var(--text-dim); font-size: 11px; font-family: var(--font-mono); }
+
+.status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.status-dot.online { background: var(--sev-low); box-shadow: 0 0 8px var(--sev-low); }
+.status-dot.delay  { background: var(--sev-high); }
+
+.api-list { display: grid; gap: 6px; }
+.api-list code {
+  display: block; padding: 8px 10px;
+  border-radius: var(--r);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--cyan); font-size: 11px;
+}
+
+/* ═══════════════════════════════════════
+   TIMELINE
+═══════════════════════════════════════ */
+.timeline { display: grid; gap: 0; }
+
+.timeline-row {
+  display: grid; grid-template-columns: 50px 16px 1fr;
+  gap: 10px; padding-bottom: 16px; position: relative;
+}
+
+.timeline-row:not(:last-child)::before {
+  content: ''; position: absolute; left: 57px; top: 16px; bottom: 0;
+  width: 1px; background: var(--border);
+}
+
+.timeline-row .time {
+  color: var(--text-dim); font-size: 11px; font-family: var(--font-mono); padding-top: 2px;
+}
+
+.timeline-row .node {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--accent); margin-top: 4px; flex-shrink: 0;
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.timeline-row b { display: block; color: var(--text-main); font-size: 13px; }
+.timeline-row p { margin: 3px 0 0; color: var(--text-dim); font-size: 12px; line-height: 1.4; }
+
+/* ═══════════════════════════════════════
+   MITRE HEATMAP
+═══════════════════════════════════════ */
+.heatmap-list { display: grid; gap: 7px; }
+
+.heatmap-row {
+  display: grid; grid-template-columns: 64px 1fr 90px 50px;
+  align-items: center; gap: 10px;
+  padding: 8px 9px;
+  border-radius: var(--r);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+
+.heatmap-row code { color: var(--cyan); font-size: 11px; }
+.heatmap-row .tname { color: var(--text-main); font-size: 12px; }
+.heatmap-row .ttactic { color: var(--text-dim); font-size: 10px; }
+.heatmap-row .tcount { text-align: right; color: var(--text-main); font-family: var(--font-mono); font-size: 13px; font-weight: 700; }
+
+.heatmap-bar { height: 5px; border-radius: var(--r-pill); background: var(--bg-base); overflow: hidden; margin-top: 4px; }
+.heatmap-bar i { display: block; height: 100%; background: var(--cyan); }
+
+/* ═══════════════════════════════════════
+   TRUST SCORE LEADERBOARD
+═══════════════════════════════════════ */
+.leaderboard-list { display: grid; gap: 7px; }
+
+.leaderboard-row {
+  display: grid; grid-template-columns: 28px 1fr 70px 110px;
+  align-items: center; gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--r);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.leaderboard-row:hover { border-color: var(--accent); }
+.leaderboard-row .rank { color: var(--text-faint); font-family: var(--font-mono); font-size: 12px; }
+.leaderboard-row .name { color: var(--text-main); font-size: 13px; }
+.leaderboard-row .score { text-align: right; font-family: var(--font-mono); font-weight: 700; font-size: 14px; }
+
+/* ═══════════════════════════════════════
+   METRICS TABLE
+═══════════════════════════════════════ */
+.metrics-tiles {
+  display: grid; grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 10px;
+}
+
+.metric-tile {
+  padding: 13px;
+  border-radius: var(--r-lg);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.metric-tile span { display: block; color: var(--text-dim); font-size: 10px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; }
+.metric-tile strong { display: block; margin-top: 6px; color: var(--text-main); font-size: 21px; font-family: var(--font-mono); }
+
+/* ═══════════════════════════════════════
+   AUDIT LIST
+═══════════════════════════════════════ */
+.audit-list { display: grid; gap: 0; max-height: 600px; overflow-y: auto; }
+
+.audit-row {
+  display: grid; grid-template-columns: 64px 1fr;
+  gap: 12px; padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.audit-row:last-child { border-bottom: 0; }
+
+.audit-row > span {
+  color: var(--accent); font-weight: 700;
+  font-family: var(--font-mono); font-size: 10px;
+  padding-top: 2px;
+}
+
+.audit-row b { color: var(--text-main); font-size: 13px; }
+.audit-row p { margin: 4px 0 0; color: var(--text-dim); font-size: 12px; line-height: 1.4; }
+
+/* ═══════════════════════════════════════
+   SEARCH / THREAT HUNTING
+═══════════════════════════════════════ */
+.hunt-bar {
+  display: grid; grid-template-columns: 1fr 100px;
+  gap: 8px; margin-bottom: 12px;
+}
+
+.hunt-bar input {
+  width: 100%;
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  background: var(--bg-raised);
+  border-radius: var(--r);
+  outline: none;
+  padding: 10px 12px; font-size: 13px;
+  font-family: var(--font-mono);
+}
+
+.hunt-bar input:focus { border-color: var(--accent); }
+
+.hunt-chips { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; }
+
+.hunt-chip {
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text-dim);
+  border-radius: var(--r-pill);
+  padding: 6px 11px;
+  font-size: 11px; font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.hunt-chip:hover { color: var(--cyan); border-color: var(--border-cyan); background: var(--cyan-glow); }
+
+.hunt-results-meta {
+  color: var(--text-dim); font-size: 12px; font-family: var(--font-mono);
+  margin-bottom: 10px;
+}
+
+/* ═══════════════════════════════════════
+   TABLE
+═══════════════════════════════════════ */
+.table-wrap { overflow-x: auto; }
+
+table {
+  width: 100%; border-collapse: separate;
+  border-spacing: 0 6px; min-width: 640px;
+}
+
+th {
+  color: var(--text-dim); font-size: 10px;
+  text-align: left; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 0 12px 5px;
+  font-family: var(--font-mono);
+}
+
+td {
+  color: var(--text-main); padding: 11px 12px;
+  background: var(--bg-raised);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+td:first-child { border-left: 1px solid var(--border); border-radius: var(--r) 0 0 var(--r); }
+td:last-child  { border-right: 1px solid var(--border); border-radius: 0 var(--r) var(--r) 0; }
+
+tbody tr { cursor: pointer; transition: all 0.1s; }
+tbody tr:hover td { background: var(--accent-glow); border-color: var(--accent); }
+
+.empty-state { color: var(--text-dim); font-size: 13px; text-align: center; padding: 30px 10px; }
+
+.loading-state {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 240px;
+  color: var(--text-dim); font-size: 13px; font-family: var(--font-mono);
+}
+
+/* ═══════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════ */
+@media (max-width: 1500px) {
+  .workspace { grid-template-columns: 326px minmax(0, 1fr); }
+  .right-column { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .module-layout { grid-template-columns: 326px minmax(0, 1fr); }
+  .module-layout .right-column { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1180px) {
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    z-index: 41;
+    transform: translateX(-100%);
+    box-shadow: 0 0 40px rgba(0,0,0,0.4);
+  }
+  .sidebar.is-open { transform: translateX(0); }
+  .sidebar-menu-btn { display: flex; }
+  .sidebar-close-btn { display: block; }
+  .sidebar-backdrop.is-visible {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 40;
+  }
+  .main { padding-top: 64px; } /* room for the fixed hamburger button */
+  .workspace, .module-layout { grid-template-columns: 1fr; }
+  .right-column, .module-layout .right-column { grid-template-columns: 1fr; }
+  .middle-grid, .charts-grid, .module-grid.two-column { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .metrics-tiles { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
+@media (max-width: 720px) {
+  .main { padding: 14px; }
+  .topbar, .detail-header { display: block; }
+  .top-actions, .detail-actions { margin-top: 12px; justify-content: flex-start; }
+  .stats-grid, .info-grid { grid-template-columns: 1fr; }
+  .filters, .hunt-bar { grid-template-columns: 1fr; }
+  .topbar h1 { font-size: 22px; }
+}
+
+/* ═══════════════════════════════════════
+   SCROLLBAR
+═══════════════════════════════════════ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--r-pill); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ================================================================
+   CYBER CONTROL TOWER — Application
+   ================================================================ */
+const API_BASE = "";
+
+async function api(path, options = {}) {
+  const res = await fetch(API_BASE + path, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options,
+  });
+  let body = null;
+  try { body = await res.json(); } catch (e) { /* no body */ }
+  if (!res.ok) {
+    const err = new Error((body && (body.message || body.error)) || `Request failed (${res.status})`);
+    err.status = res.status;
+    err.body = body;
+    throw err;
+  }
+  return body;
+}
+
+/* ── Global state ── */
+
+/* ── Global auth state ── */
+let currentUser    = null;
+let permissions    = {};
+let authMode       = "login";     // "login" | "register"
+let authError      = "";
+let authSuccess    = "";
+let authSubmitting = false;
+
+let activePage = "command";
+let sidebarOpen = false; // mobile/narrow-viewport sidebar toggle (< 1180px)
+let incidents = [];
+let incidentsLoaded = false;
+let incidentsError = "";
+let selectedId = null;
+let query = "";
+let severityFilter = "All";
+let statusFilter = "All";
+let notice = "";
+
+let summary = null;
+let graphData = null;
+let mitreHeatmap = null;
+let trustBoard = null;
+let metricsReport = null;
+let auditLog = null;
+let huntQuery = "";
+let huntResults = null;
+let huntSuggested = [];
+let demoAccounts = [];
+let correlationStats = null;
+let systemHealth = null;
+let responseMode = null;        // { mode: "notify"|"enforce", valid_modes: [...] } | { error }
+let responseModeSaving = false; // disables the toggle while a save is in-flight
+
+const app = document.getElementById("app");
+
+/* ── Utilities ── */
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+// Mirrors response/engine.py's ACTION_BY_ATTACK_TYPE — used only to show
+// the analyst what action the "Take protective action" button will take
+// before they click it. The backend is the source of truth; this is UI copy.
+const RESPONSE_ACTION_BY_ATTACK_TYPE = {
+  "Intrusion":     "Block",
+  "SQL Injection": "Block",
+  "XSS":           "Block",
+  "DDoS":          "Block",
+  "Phishing":      "Quarantine",
+  "Malware":       "Quarantine",
+  "Ransomware":    "Quarantine",
+};
+function ACTION_BY_ATTACK_TYPE_HINT(attackType) {
+  return RESPONSE_ACTION_BY_ATTACK_TYPE[attackType] || "Quarantine";
+}
+
+function severityClass(severity) {
+  if (severity === "Critical") return "sev sev-critical";
+  if (severity === "High")     return "sev sev-high";
+  if (severity === "Medium")   return "sev sev-medium";
+  return "sev sev-low";
+}
+
+function statusClass(status) {
+  return "status-pill status-" + String(status || "open").toLowerCase();
+}
+
+function riskLabel(risk) {
+  if (risk >= 80) return "Critical Exposure";
+  if (risk >= 60) return "High Risk";
+  if (risk >= 30) return "Needs Review";
+  return "Stable";
+}
+
+function fmtDate(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function fmtMinutes(mins) {
+  if (mins == null) return "—";
+  if (mins < 60) return `${mins.toFixed(1)}m`;
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return `${h}h ${m}m`;
+}
+
+function mttrDisplay(incident) {
+  // Point 2 / 16: MTTR only means something once an incident is actually
+  // Resolved — showing it for Open/Investigating incidents implies a
+  // resolution that hasn't happened yet.
+  if (incident.status === "Open")          return "— (Pending)";
+  if (incident.status === "Investigating") return "—";
+  if (incident.status === "Contained")     return `${fmtMinutes(incident.mttr_minutes)} (MTTC, not yet closed)`;
+  return fmtMinutes(incident.mttr_minutes); // Resolved
+}
+
+function debounce(fn, ms) {
+  let t = null;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+}
+
+/* ── Login screen ── */
+function renderLogin() {
+  app.innerHTML = `
+    <div class="login-shell">
+      <div class="login-card">
+
+        <div class="login-brand">
+          <div class="logo">⛭</div>
+          <h1>Cyber Control Tower</h1>
+        </div>
+        <p class="subtitle">Sign in to access the SOC console.</p>
+
+        <!-- Tab switcher -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--r);padding:4px;margin-bottom:20px;">
+          <button
+            id="tabLogin"
+            style="border:0;border-radius:6px;padding:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
+                   background:${authMode==='login' ? 'var(--bg-panel)' : 'transparent'};
+                   color:${authMode==='login' ? 'var(--accent)' : 'var(--text-dim)'};
+                   ${authMode==='login' ? 'border:1px solid var(--border-accent);' : ''}">
+            Sign in
+          </button>
+          <button
+            id="tabRegister"
+            style="border:0;border-radius:6px;padding:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
+                   background:${authMode==='register' ? 'var(--bg-panel)' : 'transparent'};
+                   color:${authMode==='register' ? 'var(--accent)' : 'var(--text-dim)'};
+                   ${authMode==='register' ? 'border:1px solid var(--border-accent);' : ''}">
+            Sign up
+          </button>
+        </div>
+
+        <!-- Error message -->
+        ${authError   ? `<div class="login-error">${escapeHtml(authError)}</div>`   : ""}
+        ${authSuccess ? `<div style="margin-bottom:14px;padding:10px 12px;border-radius:var(--r);background:var(--sev-low-bg);border:1px solid var(--sev-low-bd);color:var(--sev-low);font-size:12px;font-family:var(--font-mono);">${escapeHtml(authSuccess)}</div>` : ""}
+
+        <!-- SIGN IN FORM -->
+        ${authMode === "login" ? `
+          <div id="loginForm">
+            <div class="field">
+              <label for="loginUsername">Username</label>
+              <input id="loginUsername" autocomplete="username" placeholder="analyst" />
+            </div>
+            <div class="field">
+              <label for="loginPassword">Password</label>
+              <input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" />
+            </div>
+            <button class="login-submit" id="loginBtn" ${authSubmitting ? "disabled" : ""}>
+              ${authSubmitting ? "Signing in…" : "Sign in"}
+            </button>
+          </div>
+
+          <div class="login-divider"></div>
+          <p class="demo-label">Demo accounts</p>
+          ${demoAccounts.map((acc) => `
+            <div class="demo-row">
+              <div class="demo-row-id">
+                <b>${escapeHtml(acc.role_label)}</b>
+                <code>${escapeHtml(acc.username)} / ${escapeHtml(acc.password)}</code>
+              </div>
+              <button class="demo-use-btn"
+                data-demo-user="${escapeHtml(acc.username)}"
+                data-demo-pass="${escapeHtml(acc.password)}">Use</button>
+            </div>
+          `).join("")}
+        ` : ""}
+
+        <!-- SIGN UP FORM -->
+        ${authMode === "register" ? `
+          <div id="registerForm">
+            <div class="field">
+              <label for="regUsername">Username <span style="color:var(--sev-critical)">*</span></label>
+              <input id="regUsername" autocomplete="username" placeholder="e.g. john_doe (min. 3 chars)" />
+            </div>
+            <div class="field">
+              <label for="regDisplay">Display name</label>
+              <input id="regDisplay" placeholder="e.g. John Smith (optional)" />
+            </div>
+            <div class="field">
+              <label for="regRole">Role <span style="color:var(--sev-critical)">*</span></label>
+              <select id="regRole" style="width:100%;border:1px solid var(--border);color:var(--text-main);background:var(--bg-raised);border-radius:var(--r);outline:none;padding:11px 12px;font-size:14px;">
+                <option value="analyst">Security Analyst</option>
+                <option value="manager">SOC Manager</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="regPassword">Password <span style="color:var(--sev-critical)">*</span></label>
+              <input id="regPassword" type="password" autocomplete="new-password" placeholder="Min. 6 characters" />
+            </div>
+            <button class="login-submit" id="registerBtn" ${authSubmitting ? "disabled" : ""}>
+              ${authSubmitting ? "Creating account…" : "Create account"}
+            </button>
+          </div>
+        ` : ""}
+
+      </div>
+    </div>
+  `;
+
+  /* ── Tab switching ── */
+  document.getElementById("tabLogin").addEventListener("click", () => {
+    authMode = "login"; authError = ""; authSuccess = ""; renderLogin();
+  });
+  document.getElementById("tabRegister").addEventListener("click", () => {
+    authMode = "register"; authError = ""; authSuccess = ""; renderLogin();
+  });
+
+  /* ── Sign in ── */
+  if (authMode === "login") {
+    const loginBtn = document.getElementById("loginBtn");
+
+    loginBtn.addEventListener("click", () => {
+      const username = (document.getElementById("loginUsername").value || "").trim();
+      const password =  document.getElementById("loginPassword").value || "";
+      submitLogin(username, password);
+    });
+
+    // Enter key in password field triggers login
+    document.getElementById("loginPassword").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") loginBtn.click();
+    });
+
+    /*
+     * "Use" button: FILLS the form fields only — does NOT auto-login.
+     * The user reviews the credentials and clicks "Sign in" themselves.
+     */
+    document.querySelectorAll("[data-demo-user]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.getElementById("loginUsername").value = btn.dataset.demoUser;
+        document.getElementById("loginPassword").value = btn.dataset.demoPass;
+        document.getElementById("loginBtn").focus();
+      });
+    });
+
+    document.getElementById("loginUsername").focus();
+  }
+
+  /* ── Sign up ── */
+  if (authMode === "register") {
+    document.getElementById("registerBtn").addEventListener("click", () => {
+      const username    = (document.getElementById("regUsername").value || "").trim();
+      const displayName = (document.getElementById("regDisplay").value  || "").trim();
+      const role        =  document.getElementById("regRole").value      || "analyst";
+      const password    =  document.getElementById("regPassword").value  || "";
+      submitRegister(username, displayName, role, password);
+    });
+
+    document.getElementById("regUsername").focus();
+  }
+}
+
+/* ── Client-side validation before hitting the API ── */
+function validateLogin(username, password) {
+  if (!username)        return "Please enter your username.";
+  if (!password)        return "Please enter your password.";
+  return null;
+}
+
+function validateRegister(username, password) {
+  if (!username)           return "Username is required.";
+  if (username.length < 3) return "Username must be at least 3 characters.";
+  if (!password)           return "Password is required.";
+  if (password.length < 6) return "Password must be at least 6 characters.";
+  return null;
+}
+
+/* ── Submit login ── */
+async function submitLogin(username, password) {
+  const validationError = validateLogin(username, password);
+  if (validationError) {
+    authError = validationError;
+    renderLogin();
+    return;
+  }
+
+  authSubmitting = true;
+  authError      = "";
+  renderLogin();
+
+  try {
+    const data = await api("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    });
+    currentUser    = data.user;
+    permissions    = data.permissions || {};
+    authSubmitting = false;
+    authError      = "";
+    authSuccess    = "";
+    resetWorkspaceState();
+    render();
+  } catch (err) {
+    authSubmitting = false;
+    authError      = err.message || "Sign in failed. Check your username and password.";
+    renderLogin();
+  }
+}
+
+/* ── Submit register ── */
+async function submitRegister(username, displayName, role, password) {
+  const validationError = validateRegister(username, password);
+  if (validationError) {
+    authError = validationError;
+    renderLogin();
+    return;
+  }
+
+  authSubmitting = true;
+  authError      = "";
+  renderLogin();
+
+  try {
+    const data = await api("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ username, display_name: displayName, role, password }),
+    });
+    // Backend auto-logs in — same response shape as login
+    currentUser    = data.user;
+    permissions    = data.permissions || {};
+    authSubmitting = false;
+    authError      = "";
+    authSuccess    = "";
+    resetWorkspaceState();
+    render();
+  } catch (err) {
+    authSubmitting = false;
+    authError      = err.message || "Could not create account. Please try again.";
+    renderLogin();
+  }
+}
+
+async function handleLogout() {
+  try { await api("/api/auth/logout", { method: "POST" }); } catch (e) { /* ignore */ }
+  currentUser = null;
+  permissions = {};
+  authMode    = "login";
+  authError   = "";
+  authSuccess = "";
+  resetWorkspaceState();
+  render();
+}
+
+function resetWorkspaceState() {
+  activePage = "command";
+  sidebarOpen = false;
+  incidents = [];
+  incidentsLoaded = false;
+  incidentsError = "";
+  selectedId = null;
+  query = "";
+  severityFilter = "All";
+  statusFilter = "All";
+  notice = "";
+  summary = null;
+  graphData = null;
+  mitreHeatmap = null;
+  trustBoard = null;
+  metricsReport = null;
+  auditLog = null;
+  huntQuery = "";
+  huntResults = null;
+  correlationStats = null;
+  systemHealth = null;
+  responseMode = null;
+  responseModeSaving = false;
+}
+
+
+async function bootstrap() {
+  try {
+    const accounts = await api("/api/auth/demo-accounts");
+    demoAccounts = accounts;
+  } catch (e) { /* non-fatal */ }
+
+  try {
+    const me = await api("/api/auth/me");
+    if (me.user) {
+      currentUser = me.user;
+      permissions = me.permissions || {};
+    }
+  } catch (e) { /* not logged in */ }
+
+  render();
+}
+
+/* ── Data loading ── */
+async function loadIncidents() {
+  try {
+    incidents = await api("/api/incidents");
+    incidentsLoaded = true;
+    incidentsError = "";
+    if (!selectedId && incidents.length) {
+      selectedId = [...incidents].sort((a, b) => b.risk_score - a.risk_score)[0].incident_id;
+    }
+  } catch (err) {
+    incidentsError = err.message || "Failed to load incidents.";
+  }
+  render();
+}
+
+async function loadSummary() {
+  try { summary = await api("/api/summary"); } catch (err) { summary = { error: err.message }; }
+  render();
+}
+
+async function loadGraph() {
+  try { graphData = await api("/api/graph"); } catch (err) { graphData = { error: err.message }; }
+  render();
+}
+
+async function loadMitreHeatmap() {
+  try { mitreHeatmap = await api("/api/mitre/heatmap"); } catch (err) { mitreHeatmap = { error: err.message }; }
+  render();
+}
+
+async function loadTrustBoard() {
+  try { trustBoard = await api("/api/trust-scores"); } catch (err) { trustBoard = { error: err.message, status: err.status }; }
+  render();
+}
+
+async function loadMetrics() {
+  try { metricsReport = await api("/api/metrics"); } catch (err) { metricsReport = { error: err.message, status: err.status }; }
+  render();
+}
+
+async function loadAudit() {
+  try { auditLog = await api("/api/audit?limit=60"); } catch (err) { auditLog = { error: err.message }; }
+  render();
+}
+
+async function loadCorrelationStats() {
+  try { correlationStats = await api("/api/correlation-stats"); } catch (err) { correlationStats = { error: err.message }; }
+  render();
+}
+
+async function loadSystemHealth() {
+  try { systemHealth = await api("/api/system-health"); } catch (err) { systemHealth = { error: err.message, status: err.status }; }
+  render();
+}
+
+async function loadResponseMode() {
+  try { responseMode = await api("/api/settings/response-mode"); } catch (err) { responseMode = { error: err.message, status: err.status }; }
+  render();
+}
+
+async function saveResponseMode(newMode) {
+  responseModeSaving = true;
+  render();
+  try {
+    const updated = await api("/api/settings/response-mode", {
+      method: "POST",
+      body: JSON.stringify({ mode: newMode }),
+    });
+    responseMode = { ...responseMode, mode: updated.mode };
+    notice = newMode === "enforce"
+      ? "Enforce mode enabled — Critical/High incidents will be auto-contained."
+      : "Enforce mode disabled — back to notify-only.";
+    systemHealth = null; // module status line shows the mode; refresh it
+  } catch (err) {
+    showError(err.message || "Could not update response mode.");
+  }
+  responseModeSaving = false;
+  render();
+}
+
+async function respondToIncident(incidentId) {
+  try {
+    const updated = await api(`/api/incidents/${encodeURIComponent(incidentId)}/respond`, {
+      method: "POST",
+    });
+    incidents = incidents.map((i) => (i.incident_id === incidentId ? updated : i));
+    notice = `${incidentId} contained (${updated.action_taken}).`;
+  } catch (err) {
+    showError(err.message || "Could not execute response action.");
+  }
+  render();
+}
+
+async function loadSuggestedHunts() {
+  try { huntSuggested = await api("/api/search/suggested"); } catch (e) { huntSuggested = []; }
+  render();
+}
+
+async function runHunt(q) {
+  huntQuery = q;
+  try {
+    const data = await api("/api/search?q=" + encodeURIComponent(q));
+    huntResults = data;
+  } catch (err) {
+    huntResults = { error: err.message };
+  }
+  render();
+}
+
+async function changeIncidentStatus(incidentId, newStatus) {
+  try {
+    const updated = await api(`/api/incidents/${encodeURIComponent(incidentId)}/status`, {
+      method: "POST",
+      body: JSON.stringify({ status: newStatus }),
+    });
+    incidents = incidents.map((i) => (i.incident_id === incidentId ? updated : i));
+    notice = `${incidentId} moved to ${newStatus}.`;
+  } catch (err) {
+    notice = "";
+    showError(err.message || "Could not update status.");
+  }
+  render();
+}
+
+let transientError = "";
+function showError(msg) {
+  transientError = msg;
+  render();
+  setTimeout(() => { transientError = ""; render(); }, 4000);
+}
+
+/* ── Navigation ── */
+const navItems = [
+  { key: "command",     label: "Command Center",   cap: null },
+  { key: "triage",      label: "Incident Triage",   cap: null },
+  { key: "mitre",       label: "MITRE Heatmap",      cap: null },
+  { key: "twin",        label: "Cyber Digital Twin", cap: null },
+  { key: "hunting",     label: "Threat Hunting",     cap: null },
+  { key: "trust",       label: "Trust Score",        cap: "view_trust_scores" },
+  { key: "metrics",     label: "MTTD / MTTR",        cap: "view_metrics" },
+  { key: "audit",       label: "Audit Trail",        cap: null },
+  { key: "system",      label: "Admin / System Health", cap: "view_system_health" },
+];
+
+const pageMeta = {
+  command:  { title: "Cyber Control Tower",    subtitle: "SOC dashboard for correlation, triage, prioritization, and response." },
+  triage:   { title: "Incident Triage",        subtitle: "Review correlated incidents, change workflow status, and inspect each attack story." },
+  mitre:    { title: "MITRE ATT&CK Heatmap",   subtitle: "Technique frequency across all correlated incidents, mapped to the ATT&CK framework." },
+  twin:     { title: "Cyber Digital Twin",     subtitle: "Graph view of users, hosts, and network segments derived from the live event stream." },
+  hunting:  { title: "Threat Hunting",         subtitle: "Run structured queries against the correlated incident set." },
+  trust:    { title: "Trust Score Leaderboard", subtitle: "Behavior-based risk scoring per user account. Visible to SOC Managers." },
+  metrics:  { title: "MTTD / MTTR Metrics",    subtitle: "Detection and response time performance, broken down by severity, attack type, and segment." },
+  audit:    { title: "Audit Trail",            subtitle: "Real record of sign-ins, status changes, and hunt queries run in this session." },
+  system:   { title: "Admin / System Health",  subtitle: "Backend service status and API surface. SOC Manager only — implementation detail, not analyst workflow." },
+};
+
+function hasAccess(item) {
+  if (!item.cap) return true;
+  return !!permissions[item.cap];
+}
+
+function getFilteredIncidents() {
+  return incidents
+    .filter((item) => severityFilter === "All" || item.severity === severityFilter)
+    .filter((item) => statusFilter === "All" || item.status === statusFilter)
+    .filter((item) => {
+      const techIds = (item.mitre_techniques || []).map((t) => t.technique_id).join(" ");
+      const haystack = `${item.incident_id} ${item.user} ${item.source_ip} ${item.dst_ip} ` +
+        `${item.attack_type} ${item.network_segment} ${item.hostname} ${item.device_name} ` +
+        `${item.asset_id} ${item.business_unit} ${item.os_name} ${item.status} ${techIds}`;
+      return haystack.toLowerCase().includes(query.toLowerCase());
+    })
+    .sort((a, b) => b.risk_score - a.risk_score);
+}
+
+function getSelectedIncident() {
+  return incidents.find((item) => item.incident_id === selectedId) || incidents[0] || null;
+}
+
+function renderNavigation() {
+  return navItems.map((item) => {
+    const allowed = hasAccess(item);
+    return `
+      <button class="${activePage === item.key ? "nav-active" : ""}" data-nav="${escapeHtml(item.key)}" ${!allowed ? 'data-locked="1"' : ""}>
+        <span class="nav-label">${escapeHtml(item.label)}</span>
+        ${!allowed ? '<span class="nav-lock">🔒</span>' : ""}
+      </button>
+    `;
+  }).join("");
+}
+
+function renderTopbar(meta) {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString("en-US", { hour12: false });
+  return `
+    <header class="topbar">
+      <div>
+        <h1>${escapeHtml(meta.title)}</h1>
+        <p>${escapeHtml(meta.subtitle)}</p>
+      </div>
+      <div class="top-actions">
+        <span class="live-clock" id="liveClock">${escapeHtml(timeStr)}</span>
+        <button class="ghost-btn" data-refresh>Refresh</button>
+      </div>
+    </header>
+    ${notice ? `<div class="notice">${escapeHtml(notice)}</div>` : ""}
+    ${transientError ? `<div class="notice error">${escapeHtml(transientError)}</div>` : ""}
+  `;
+}
+
+function lockBanner(label) {
+  return `
+    <div class="lock-banner">
+      <div class="lock-icon">🔒</div>
+      <div>
+        <h3>${escapeHtml(label)} is limited to the SOC Manager role</h3>
+        <p>Your account (${escapeHtml(currentUser.role_label)}) doesn't have access to this view. Sign in as the SOC Manager demo account to see it.</p>
+      </div>
+    </div>
+  `;
+}
+
+function renderContent() {
+  const item = navItems.find((n) => n.key === activePage);
+  if (item && !hasAccess(item)) {
+    return lockBanner(pageMeta[activePage]?.title || "This view");
+  }
+
+  if (activePage === "triage")  return triageView();
+  if (activePage === "mitre")   return mitreView();
+  if (activePage === "twin")    return twinView();
+  if (activePage === "hunting") return huntingView();
+  if (activePage === "trust")   return trustView();
+  if (activePage === "metrics") return metricsView();
+  if (activePage === "audit")   return auditView();
+  if (activePage === "system")  return systemHealthView();
+  return commandCenterView();
+}
+
+/* ── Main render ── */
+function render() {
+  if (!currentUser) {
+    renderLogin();
+    return;
+  }
+
+  if (!incidentsLoaded && !incidentsError) {
+    loadIncidents();
+  }
+
+  const meta = pageMeta[activePage] || pageMeta.command;
+  const searchWasFocused = document.activeElement && (document.activeElement.id === "searchInput" || document.activeElement.id === "huntInput");
+  const focusedSelectionStart = searchWasFocused ? document.activeElement.selectionStart : null;
+
+  app.innerHTML = `
+    <div class="cct-app">
+      <button class="sidebar-menu-btn" data-sidebar-toggle aria-label="Open navigation" aria-expanded="${sidebarOpen}">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="sidebar-backdrop ${sidebarOpen ? "is-visible" : ""}" data-sidebar-backdrop></div>
+      <aside class="sidebar ${sidebarOpen ? "is-open" : ""}">
+        <div class="brand">
+          <div class="logo">⛭</div>
+          <div><h1>CCT</h1><p>Cyber Control Tower</p></div>
+          <button class="sidebar-close-btn" data-sidebar-close aria-label="Close navigation">✕</button>
+        </div>
+        <div class="user-card">
+          <div class="user-card-id">
+            <b>${escapeHtml(currentUser.display_name)}</b>
+            <span>${escapeHtml(currentUser.role_label)}</span>
+          </div>
+          <button class="logout-btn" data-logout>Sign out</button>
+        </div>
+        <nav>${renderNavigation()}</nav>
+        <div class="sidebar-note">
+          <b>Live backend</b>
+          <p>Every view on this dashboard reads from the Flask API in real time — incidents, MITRE mapping, the digital twin graph, and trust scores are computed from the actual dataset, not mocked.</p>
+        </div>
+      </aside>
+
+      <main class="main">
+        ${renderTopbar(meta)}
+        ${incidentsError ? `<div class="notice error">${escapeHtml(incidentsError)} <button class="ghost-btn" data-retry-incidents style="margin-left:8px;">Retry</button></div>` : ""}
+        ${!incidentsLoaded && !incidentsError ? `<div class="loading-state">Loading incidents…</div>` : renderContent()}
+      </main>
+    </div>
+  `;
+
+  bindEvents();
+  startClock();
+
+  if (searchWasFocused) {
+    const input = document.activeElement.id === "huntInput" ? document.getElementById("huntInput") : document.getElementById("searchInput");
+    if (input) {
+      input.focus();
+      if (focusedSelectionStart != null) input.setSelectionRange(focusedSelectionStart, focusedSelectionStart);
+    }
+  }
+}
+
+/* ── Live clock ── */
+let _clockInterval = null;
+function startClock() {
+  if (_clockInterval) clearInterval(_clockInterval);
+  _clockInterval = setInterval(() => {
+    const el = document.getElementById("liveClock");
+    if (!el) { clearInterval(_clockInterval); return; }
+    el.textContent = new Date().toLocaleTimeString("en-US", { hour12: false });
+  }, 1000);
+}
+
+/* ── Shared components ── */
+function statCard(title, value, subtitle, tone = "") {
+  return `
+    <div class="stat-card ${tone}">
+      <div>
+        <p class="stat-title">${escapeHtml(title)}</p>
+        <h3>${escapeHtml(String(value))}</h3>
+        <p class="stat-subtitle">${escapeHtml(subtitle)}</p>
+      </div>
+      <div class="stat-dot"></div>
+    </div>
+  `;
+}
+
+function incidentItem(incident, active) {
+  const slaBreach = incident.detection_sla_breached || incident.response_sla_breached || incident.containment_sla_breached;
+  return `
+    <button class="incident-item ${active ? "active" : ""}" data-select-incident="${escapeHtml(incident.incident_id)}">
+      <div class="incident-top">
+        <div>
+          <div class="incident-meta">
+            <span class="${severityClass(incident.severity)}">${escapeHtml(incident.severity)}</span>
+            <span class="${statusClass(incident.status)}">${escapeHtml(incident.status)}</span>
+            <span style="color:var(--text-dim);font-family:var(--font-mono);font-size:11px;">${escapeHtml(incident.incident_id)}</span>
+            ${slaBreach ? `<span class="badge badge-critical">SLA</span>` : ""}
+          </div>
+          <h4>${escapeHtml(incident.attack_type)} — ${escapeHtml(incident.hostname || incident.user)}</h4>
+          <p style="color:var(--text-dim);font-size:11px;margin:2px 0 0;">${escapeHtml(incident.device_name || "")} · ${escapeHtml(incident.user)} · ${escapeHtml(incident.assigned_analyst)}</p>
+        </div>
+        <div class="risk-box">
+          <strong>${escapeHtml(String(Math.round(incident.risk_score)))}</strong>
+          <span>Risk</span>
+        </div>
+      </div>
+      <div class="incident-grid">
+        <div><span>Segment</span><b>${escapeHtml(incident.network_segment)}</b></div>
+        <div><span>Events</span><b>${escapeHtml(String(incident.event_count))}</b></div>
+        <div><span>MTTD</span><b>${escapeHtml(fmtMinutes(incident.mttd_minutes))}</b></div>
+      </div>
+    </button>
+  `;
+}
+
+function riskGauge(risk, label = "Risk score") {
+  const angle = Math.min(100, Math.max(0, risk)) * 1.8;
+  return `
+    <div class="risk-gauge-card">
+      <div class="gauge-wrap">
+        <div class="gauge-track"></div>
+        <div class="gauge-fill" style="transform: rotate(${angle}deg)"></div>
+        <div class="gauge-inner">
+          <strong>${escapeHtml(String(Math.round(risk)))}</strong>
+          <span>${escapeHtml(riskLabel(risk))}</span>
+        </div>
+      </div>
+      <p>${escapeHtml(label)} — computed server-side from severity, event count, attack-chain confidence, and MITRE tactic criticality.</p>
+    </div>
+  `;
+}
+
+function infoTile(label, value) {
+  return `
+    <div class="info-tile">
+      <span>${escapeHtml(label)}</span>
+      <strong title="${escapeHtml(value)}">${escapeHtml(value)}</strong>
+    </div>
+  `;
+}
+
+function detailCard(incident) {
+  if (!incident) return `<div class="panel"><p class="empty-state">No incident selected.</p></div>`;
+  const canChange = !!permissions.change_incident_status;
+  const statuses = ["Open", "Investigating", "Contained", "Resolved"];
+  const techNames = (incident.mitre_techniques || []).slice(0, 4).map((t) => t.technique_id).join(" / ") || "—";
+
+  return `
+    <div class="panel detail-panel">
+      <div class="detail-header">
+        <div>
+          <div class="tag-row">
+            <span class="${severityClass(incident.severity)}">${escapeHtml(incident.severity)}</span>
+            <span class="soft-tag">${escapeHtml(incident.attack_type)}</span>
+            <span class="${statusClass(incident.status)}">${escapeHtml(incident.status)}</span>
+          </div>
+          <h2>${escapeHtml(incident.incident_id)} — ${escapeHtml(incident.attack_type)} affecting ${escapeHtml(incident.user)}</h2>
+          <p class="summary">${escapeHtml(incident.correlation_reason)}</p>
+        </div>
+        <div class="detail-actions">
+          ${canChange ? `
+            <select class="status-select" data-status-select="${escapeHtml(incident.incident_id)}">
+              ${statuses.map((s) => `<option value="${s}" ${s === incident.status ? "selected" : ""}>${s}</option>`).join("")}
+            </select>
+          ` : ""}
+          <button class="primary-btn" data-export-incident="${escapeHtml(incident.incident_id)}">Export report</button>
+        </div>
+      </div>
+      <div class="info-grid">
+        ${infoTile("Hostname", incident.hostname)}
+        ${infoTile("Device", incident.device_name)}
+        ${infoTile("Asset ID", incident.asset_id)}
+        ${infoTile("Business unit", incident.business_unit)}
+        ${infoTile("OS", incident.os_name)}
+        ${infoTile("Network segment", incident.network_segment)}
+        ${infoTile("Source IP", incident.source_ip)}
+        ${infoTile("Destination IP", incident.dst_ip)}
+        ${infoTile("Identity", incident.user)}
+        ${infoTile("Assigned analyst", incident.assigned_analyst)}
+        ${infoTile("Action taken", incident.action_taken)}
+        ${infoTile("MITRE techniques", techNames)}
+        ${infoTile("Event count", String(incident.event_count))}
+        ${infoTile("MTTD", fmtMinutes(incident.mttd_minutes))}
+        ${infoTile("MTTR", mttrDisplay(incident))}
+        ${infoTile("Last seen", fmtDate(incident.last_seen))}
+        ${infoTile("Correlation confidence", `${Math.round((incident.correlation_confidence || 0) * 100)}%`)}
+        ${infoTile("Detection SLA", `${incident.detection_sla_minutes}m target${incident.detection_sla_breached ? " · BREACHED" : ""}`)}
+        ${infoTile("Response SLA", `${incident.response_sla_minutes}m target${incident.response_sla_breached ? " · BREACHED" : ""}`)}
+        ${infoTile("Containment SLA", `${incident.containment_sla_minutes}m target${incident.containment_sla_breached ? " · BREACHED" : ""}`)}
+      </div>
+    </div>
+  `;
+}
+
+function timelinePanel(incident) {
+  if (!incident) return "";
+  const rows = [
+    [fmtDate(incident.occurred_at), "Event occurred", `Primary event ${incident.event_id}, severity ${incident.severity}.`],
+    [fmtDate(incident.detected_at), "Detected", `Flagged by the detection layer after ${fmtMinutes(incident.mttd_minutes)}.`],
+    [fmtDate(incident.resolved_at), "Resolved / actioned", `${incident.action_taken} after ${fmtMinutes(incident.mttr_minutes)} from detection.`],
+  ];
+  return `
+    <div class="panel">
+      <div class="panel-title">
+        <div><h3>Attack story</h3><p>${escapeHtml(incident.event_count)} related event(s) merged into this incident timeline</p></div>
+        <span class="panel-icon">⏱</span>
+      </div>
+      <div class="timeline">
+        ${rows.map(([time, title, text]) => `
+          <div class="timeline-row">
+            <span class="time">${escapeHtml(time)}</span>
+            <span class="node"></span>
+            <div>
+              <b>${escapeHtml(title)}</b>
+              <p>${escapeHtml(text)}</p>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function mitreChainPanel(incident) {
+  if (!incident) return "";
+  const techs = incident.mitre_techniques || [];
+  return `
+    <div class="panel">
+      <div class="panel-title">
+        <div><h3>MITRE ATT&CK mapping</h3><p>Tactic chain: ${escapeHtml((incident.tactic_chain || []).join(" → ") || "—")}</p></div>
+        <span class="panel-icon">⛨</span>
+      </div>
+      <div class="heatmap-list">
+        ${techs.length ? techs.map((t) => `
+          <div class="heatmap-row" style="grid-template-columns: 64px 1fr 80px;">
+            <code>${escapeHtml(t.technique_id)}</code>
+            <div>
+              <div class="tname">${escapeHtml(t.technique_name)}</div>
+              <div class="ttactic">${escapeHtml(t.tactic)}${t.sub_technique ? " · " + escapeHtml(t.sub_technique) : ""}</div>
+            </div>
+            <div class="tcount">${Math.round(t.confidence_score * 100)}%</div>
+          </div>
+        `).join("") : `<p class="empty-state">No techniques mapped.</p>`}
+      </div>
+    </div>
+  `;
+}
+
+function correlationStatsPanel() {
+  // NEW v4: makes the correlation engine's value visible — why N raw
+  // events became M incidents — instead of showing bare totals.
+  if (!correlationStats) { loadCorrelationStats(); return `<div class="panel"><p class="empty-state">Loading correlation stats…</p></div>`; }
+  if (correlationStats.error) return "";
+  const s = correlationStats;
+  return `
+    <div class="panel">
+      <div class="panel-title">
+        <div><h3>Correlation pipeline</h3><p>Raw events → correlated incidents</p></div>
+        <span class="panel-icon">⇊</span>
+      </div>
+      <div class="funnel-list" style="display:flex;flex-direction:column;gap:8px;font-size:13px;">
+        <div class="metric-tile"><span>Raw events ingested</span><strong>${escapeHtml(String(s.raw_events))}</strong></div>
+        <div style="text-align:center;color:var(--text-dim);">↓ correlation engine</div>
+        <div class="metric-tile"><span>Correlated incidents</span><strong>${escapeHtml(String(s.correlated_incidents))}</strong></div>
+        <div style="text-align:center;color:var(--text-dim);">↓</div>
+        <div class="metric-tile"><span>Duplicate events merged</span><strong>${escapeHtml(String(s.duplicate_events_merged))}</strong></div>
+        <div class="metric-tile"><span>Noise reduction</span><strong>${escapeHtml(String(s.reduction_pct))}%</strong></div>
+      </div>
+    </div>
+  `;
+}
+
+function slaOverviewPanel() {
+  // NEW v4: SLA breach visibility (point 12). Uses the incidents already
+  // loaded into `incidents` state rather than a separate fetch.
+  const list = Array.isArray(incidents) ? incidents : [];
+  const breaches = list.filter(i => i.detection_sla_breached || i.response_sla_breached || i.containment_sla_breached);
+  return `
+    <div class="panel">
+      <div class="panel-title">
+        <div><h3>SLA status</h3><p>${breaches.length} of ${list.length} incidents breaching a target</p></div>
+        <span class="panel-icon">⏱</span>
+      </div>
+      <div class="incident-list" style="max-height:220px;">
+        ${breaches.length ? breaches.slice(0, 8).map(i => `
+          <div class="incident-item" style="cursor:default;">
+            <div><b>${escapeHtml(i.incident_id)}</b><p>${escapeHtml(i.attack_type)} · ${escapeHtml(i.severity)}</p></div>
+            <span class="badge badge-critical">
+              ${[i.detection_sla_breached && "Detection", i.response_sla_breached && "Response", i.containment_sla_breached && "Containment"].filter(Boolean).join(" / ")} SLA
+            </span>
+          </div>
+        `).join("") : `<p class="empty-state">No SLA breaches right now.</p>`}
+      </div>
+    </div>
+  `;
+}
+
+function attackChainInfoPanel() {
+  // NEW v4: definition/tooltip for the "Attack Chains" metric (point 8).
+  return `
+    <div class="panel">
+      <div class="panel-title">
+        <div><h3>What counts as an attack chain?</h3></div>
+        <span class="panel-icon">?</span>
+      </div>
+      <p style="font-size:13px;color:var(--text-dim);line-height:1.6;">
+        An <b>attack chain</b> is a correlated, multi-stage incident containing two or more related
+        attack techniques observed against the same user or asset in sequence — for example
+        Reconnaissance → Initial Access → Privilege Escalation. Single, isolated events are not
+        counted as chains even if they are high severity.
+      </p>
+    </div>
+  `;
+}
+
+function sourcesPanel() {
+  const sources = (systemHealth && systemHealth.modules) || [];
+  return `
+    <div class="panel">
+      <div class="panel-title">
+        <div><h3>Backend modules</h3><p>Live status of each Flask service layer</p></div>
+        <span class="panel-icon">▣</span>
+      </div>
+      <div class="source-list">
+        ${sources.map((m) => `
+          <div class="source-row">
+            <div>
+              <span class="status-dot online"></span>
+              <div>
+                <b>${escapeHtml(m.name)}</b>
+                <p>${escapeHtml(m.detail)}</p>
+              </div>
+            </div>
+            <span>${escapeHtml(m.status)}</span>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function backendPanel() {
+  const routes = (systemHealth && systemHealth.api_endpoints) || [];
+  return `
+    <div class="panel backend-panel">
+      <div class="panel-title">
+        <div><h3>API endpoints</h3><p>Full API surface exposed by the backend</p></div>
+        <span class="panel-icon">{ }</span>
+      </div>
+      <div class="api-list">
+        ${routes.map((r) => `<code>${escapeHtml(r)}</code>`).join("")}
+      </div>
+    </div>
+  `;
+}
+
+/* ── Stats (loads /api/summary lazily) ── */
+function renderStats() {
+  if (!summary) {
+    loadSummary();
+    return `<section class="stats-grid">${[1,2,3,4].map(() => statCard("…", "—", "Loading…")).join("")}</section>`;
+  }
+  if (summary.error) {
+    return `<div class="notice error">Could not load summary: ${escapeHtml(summary.error)}</div>`;
+  }
+  const avgRisk = incidents.length ? Math.round(incidents.reduce((s, i) => s + i.risk_score, 0) / incidents.length) : 0;
+  const openCount = incidents.filter((i) => i.status !== "Contained" && i.status !== "Resolved").length;
+  const containedCount = incidents.filter((i) => i.status === "Contained" || i.status === "Resolved").length;
+  const resolved = incidents.filter((i) => i.status === "Resolved");
+  const avgMttd = incidents.length ? Math.round(incidents.reduce((s, i) => s + i.mttd_minutes, 0) / incidents.length) : 0;
+  const avgMttr = resolved.length ? Math.round(resolved.reduce((s, i) => s + i.mttr_minutes, 0) / resolved.length) : 0;
+
+  return `
+    <section class="stats-grid">
+      ${statCard("Avg risk score", `${avgRisk}/100`, "Across all correlated incidents", "danger")}
+      ${statCard("Open incidents", openCount, "Awaiting investigation or containment", "warning")}
+      ${statCard("Attack chains", summary.attack_chain_count, "Multi-stage incidents detected", "cyan")}
+      ${statCard("Contained / Resolved", containedCount, "Moved through the workflow", "success")}
+    </section>
+    <section class="stats-grid">
+      
+      ${statCard("Avg MTTR", resolved.length ? fmtMinutes(avgMttr) : "—", "Mean time to resolve, resolved only", "success")}
+      ${statCard("SLA breaches", summary.sla_breaches, "Detection, response, or containment", "warning")}
+    </section>
+    <section class="stats-grid">
+      ${statCard("Assets affected", summary.assets_affected, "Distinct endpoints across incidents", "cyan")}
+      ${statCard("Users affected", summary.users_affected, "Distinct accounts across incidents", "cyan")}
+    </section>
+  `;
+}
+
+function incidentQueuePanel(filtered, selected) {
+  return `
+    <div class="panel queue-panel">
+      <div class="panel-title">
+        <div><h3>Incident queue</h3><p>Sorted by live risk score</p></div>
+        <span class="panel-icon">☰</span>
+      </div>
+      <div class="filters">
+        <input id="searchInput" value="${escapeHtml(query)}" placeholder="Search id, user, host, asset, IP, MITRE technique…" />
+        <select id="severityFilter">
+          ${["All","Critical","High","Medium","Low"]
+            .map((item) => `<option ${item === severityFilter ? "selected" : ""}>${item}</option>`)
+            .join("")}
+        </select>
+        <select id="statusFilter">
+          ${["All","Open","Investigating","Contained","Resolved"]
+            .map((item) => `<option ${item === statusFilter ? "selected" : ""}>${item}</option>`)
+            .join("")}
+        </select>
+      </div>
+      <div class="incident-list">
+        ${filtered.length
+          ? filtered.map((incident) => incidentItem(incident, selected && incident.incident_id === selected.incident_id)).join("")
+          : `<p class="empty-state">No incidents found.</p>`}
+      </div>
+    </div>
+  `;
+}
+
+function miniCharts() {
+  if (!summary || summary.error) return "";
+  const trend = (summary.overall_mttd_mttr) ? null : null;
+  const attackCounts = summary.attack_type_breakdown || {};
+  const entries = Object.entries(attackCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const maxCount = Math.max(1, ...entries.map(([, v]) => v));
+
+  return `
+    <div class="charts-grid">
+      <div class="panel chart-card">
+        <div class="panel-title compact">
+          <h3>MTTD / MTTR overall</h3>
+          <span style="color:var(--text-dim);font-size:11px;">All correlated incidents</span>
+        </div>
+        <div class="metrics-tiles" style="grid-template-columns: repeat(2, minmax(0,1fr)); margin-top: 10px;">
+          <div class="metric-tile"><span>Mean MTTD</span><strong>${fmtMinutes(summary.overall_mttd_mttr.mttd_mean)}</strong></div>
+          <div class="metric-tile"><span>Mean MTTR</span><strong>${fmtMinutes(summary.overall_mttd_mttr.mttr_mean)}</strong></div>
+        </div>
+      </div>
+      <div class="panel chart-card">
+        <div class="panel-title compact">
+          <h3>Attack types</h3>
+          <span style="color:var(--text-dim);font-size:11px;">Incident count by type</span>
+        </div>
+        <div class="bars">
+          ${entries.map(([name, value]) => `
+            <div class="bar-row">
+              <span>${escapeHtml(name)}</span>
+              <div><i style="width:${Math.round((value / maxCount) * 100)}%"></i></div>
+              <b>${escapeHtml(String(value))}</b>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ── Views ── */
+function commandCenterView() {
+  const filtered = getFilteredIncidents();
+  const selected = getSelectedIncident();
+  return `
+    ${renderStats()}
+    <section class="workspace">
+      <div class="left-column">
+        ${incidentQueuePanel(filtered, selected)}
+        ${correlationStatsPanel()}
+      </div>
+      <div class="center-column">
+        ${detailCard(selected)}
+        <div class="middle-grid">
+          ${riskGauge(selected ? selected.risk_score : 0)}
+          ${mitreChainPanel(selected)}
+        </div>
+        ${miniCharts()}
+      </div>
+      <div class="right-column">
+        ${timelinePanel(selected)}
+        ${slaOverviewPanel()}
+      </div>
+    </section>
+  `;
+}
+
+function triageView() {
+  const filtered = getFilteredIncidents();
+  const selected = getSelectedIncident();
+  const canChange = !!permissions.change_incident_status;
+  return `
+    ${renderStats()}
+    <section class="module-layout">
+      <div class="left-column">
+        ${incidentQueuePanel(filtered, selected)}
+      </div>
+      <div class="center-column">
+        ${detailCard(selected)}
+        ${timelinePanel(selected)}
+      </div>
+      <div class="right-column">
+        ${riskGauge(selected ? selected.risk_score : 0)}
+        <div class="panel">
+          <div class="panel-title">
+            <div><h3>Triage decision</h3><p>What the analyst should do next</p></div>
+            <span class="panel-icon">✓</span>
+          </div>
+          ${selected ? `
+            <div class="decision-list" style="display:grid; gap:10px;">
+              <div style="display:flex; justify-content:space-between;"><b style="color:var(--text-main);font-size:13px;">Priority</b><span style="color:var(--text-dim);font-size:13px;">${escapeHtml(riskLabel(selected.risk_score))}</span></div>
+              <div style="display:flex; justify-content:space-between;"><b style="color:var(--text-main);font-size:13px;">Current status</b><span class="${statusClass(selected.status)}">${escapeHtml(selected.status)}</span></div>
+              <div style="display:flex; justify-content:space-between;"><b style="color:var(--text-main);font-size:13px;">Affected users</b><span style="color:var(--text-dim);font-size:13px;">${escapeHtml((selected.affected_users || []).join(", "))}</span></div>
+              <div style="display:flex; justify-content:space-between;"><b style="color:var(--text-main);font-size:13px;">Next move</b><span style="color:var(--text-dim);font-size:13px;">${selected.risk_score >= 60 ? "Investigate and contain" : "Monitor"}</span></div>
+            </div>
+            ${canChange ? `
+              <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="primary-btn" data-quick-status="${escapeHtml(selected.incident_id)}|Contained">Mark contained</button>
+                <button class="ghost-btn" data-quick-status="${escapeHtml(selected.incident_id)}|Resolved">Mark resolved</button>
+              </div>
+            ` : ""}
+            ${(!!permissions.manage_response_mode && selected.status !== "Contained" && selected.status !== "Resolved") ? `
+              <div style="margin-top:8px;">
+                <button class="ghost-btn" style="width:100%; border-color:var(--sev-crit-bd); color:var(--sev-critical);" data-respond-incident="${escapeHtml(selected.incident_id)}">
+                  ⛔ Take protective action now (${escapeHtml(ACTION_BY_ATTACK_TYPE_HINT(selected.attack_type))})
+                </button>
+              </div>
+            ` : ""}
+          ` : `<p class="empty-state">No incident selected.</p>`}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function mitreView() {
+  if (!mitreHeatmap) {
+    loadMitreHeatmap();
+    return `<div class="loading-state">Loading MITRE heatmap…</div>`;
+  }
+  if (mitreHeatmap.error) {
+    return `<div class="notice error">Could not load heatmap: ${escapeHtml(mitreHeatmap.error)}</div>`;
+  }
+  const maxCount = Math.max(1, ...mitreHeatmap.map((r) => r.incident_count));
+  return `
+    <section class="module-grid two-column">
+      <div class="panel">
+        <div class="panel-title">
+          <div><h3>Technique frequency</h3><p>${mitreHeatmap.length} distinct techniques observed across all incidents</p></div>
+          <span class="panel-icon">⛨</span>
+        </div>
+        <div class="heatmap-list">
+          ${mitreHeatmap.map((row) => `
+            <div class="heatmap-row" style="grid-template-columns: 64px 1fr 90px;">
+              <code>${escapeHtml(row.technique_id)}</code>
+              <div>
+                <div class="tname">${escapeHtml(row.technique_name)}</div>
+                <div class="ttactic">${escapeHtml(row.tactic)}</div>
+                <div class="heatmap-bar"><i style="width:${Math.round((row.incident_count / maxCount) * 100)}%"></i></div>
+              </div>
+              <div class="tcount">${escapeHtml(String(row.incident_count))}</div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+      ${attackChainInfoPanel()}
+    </section>
+  `;
+}
+
+function twinView() {
+  if (!graphData) {
+    loadGraph();
+    return `<div class="loading-state">Loading Cyber Digital Twin…</div>`;
+  }
+  if (graphData.error) {
+    return `<div class="notice error">Could not load graph: ${escapeHtml(graphData.error)}</div>`;
+  }
+  const nodeCounts = { ip: 0, user: 0, segment: 0 };
+  graphData.nodes.forEach((n) => { nodeCounts[n.data.type] = (nodeCounts[n.data.type] || 0) + 1; });
+  const subset = getGraphSubset();
+
+  return `
+    <section class="stats-grid">
+      ${statCard("Nodes (full graph)", graphData.nodes.length, "Users, hosts, and segments", "cyan")}
+      ${statCard("Edges (full graph)", graphData.edges.length, "Observed relationships", "")}
+      ${statCard("User accounts", nodeCounts.user || 0, "Mapped to traffic origin", "warning")}
+      ${statCard("Network segments", nodeCounts.segment || 0, "Distinct segments observed", "success")}
+    </section>
+    <section class="module-grid two-column" style="grid-template-columns: minmax(0,1fr);">
+      <div class="panel graph-panel">
+        <div class="panel-title">
+          <div><h3>Cyber Digital Twin</h3><p>Showing ${subset.nodes.length} of ${graphData.nodes.length} nodes — node color encodes risk</p></div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="ghost-btn" data-graph-toggle style="${graphFocusMode ? "" : "border-color:var(--accent);color:var(--accent);"}">${graphFocusMode ? "Show full graph" : "Show high-signal only"}</button>
+            <span class="panel-icon">◎</span>
+          </div>
+        </div>
+        <div id="cyGraph"></div>
+        <div class="graph-legend">
+          <span><i class="legend-dot" style="background:var(--sev-critical)"></i> Critical risk</span>
+          <span><i class="legend-dot" style="background:var(--sev-high)"></i> High risk</span>
+          <span><i class="legend-dot" style="background:var(--sev-medium)"></i> Medium risk</span>
+          <span><i class="legend-dot" style="background:var(--sev-low)"></i> Low / no risk</span>
+          <span><i class="legend-dot" style="background:var(--cyan)"></i> Network segment</span>
+        </div>
+        ${graphFocusMode ? `<p style="color:var(--text-dim);font-size:11px;margin-top:10px;">High-signal view: all users and network segments, plus the 40 highest-risk/most-active IP addresses. Switch to full graph to see all ${nodeCounts.ip} IPs.</p>` : ""}
+      </div>
+    </section>
+  `;
+}
+
+function huntingView() {
+  if (!huntSuggested.length) loadSuggestedHunts();
+  return `
+    <section class="module-grid" style="grid-template-columns: minmax(0,1fr);">
+      <div class="panel">
+        <div class="panel-title">
+          <div><h3>Threat hunting query</h3><p>Runs against /api/search — a real query engine over correlated incidents</p></div>
+          <span class="panel-icon">⌖</span>
+        </div>
+        <div class="hunt-bar">
+          <input id="huntInput" value="${escapeHtml(huntQuery)}" placeholder='e.g. severity:Critical segment:"Segment B"' />
+          <button class="primary-btn" data-run-hunt>Run query</button>
+        </div>
+        <p style="color:var(--text-faint);font-size:11px;font-family:var(--font-mono);margin:-4px 0 12px;">
+          Fields: severity, status, segment, attack, user, ip, technique, risk, mttd, mttr — quote multi-word values, e.g. segment:"Segment A". Numeric fields support &gt;/&lt;.
+        </p>
+        <div class="hunt-chips">
+          ${huntSuggested.map((h) => `<button class="hunt-chip" data-hunt-chip="${escapeHtml(h.query)}">${escapeHtml(h.label)}</button>`).join("")}
+        </div>
+        ${huntResults ? (huntResults.error
+          ? `<div class="notice error">${escapeHtml(huntResults.error)}</div>`
+          : `
+            <div class="hunt-results-meta">${huntResults.count} match(es) for "${escapeHtml(huntResults.query || "(all)")}"</div>
+            <div class="incident-list" style="max-height: 520px;">
+              ${huntResults.results.length
+                ? huntResults.results.slice(0, 40).map((incident) => incidentItem(incident, selectedId === incident.incident_id)).join("")
+                : `<p class="empty-state">No matches. Try a different field (severity, status, segment, attack, technique, risk:&gt;N).</p>`}
+            </div>
+          `) : `<p class="empty-state">Run a query or pick a quick hunt above.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function trustView() {
+  if (!trustBoard) {
+    loadTrustBoard();
+    return `<div class="loading-state">Loading trust score leaderboard…</div>`;
+  }
+  if (trustBoard.error) {
+    if (trustBoard.status === 403) return lockBanner("Trust Score Leaderboard");
+    return `<div class="notice error">Could not load trust scores: ${escapeHtml(trustBoard.error)}</div>`;
+  }
+  const sorted = [...trustBoard].sort((a, b) => a.trust_score - b.trust_score);
+  return `
+    <section class="stats-grid">
+      ${statCard("Users scored", sorted.length, "Behavioral trust score, 0–100", "cyan")}
+      ${statCard("Riskiest user", sorted[0] ? Math.round(sorted[0].trust_score) : "—", sorted[0] ? sorted[0].user : "", "danger")}
+      ${statCard("Most trusted", sorted[sorted.length - 1] ? Math.round(sorted[sorted.length - 1].trust_score) : "—", sorted[sorted.length - 1] ? sorted[sorted.length - 1].user : "", "success")}
+      ${statCard("Avg trust score", sorted.length ? Math.round(sorted.reduce((s, u) => s + u.trust_score, 0) / sorted.length) : "—", "Across all users", "")}
+    </section>
+    <section class="module-grid" style="grid-template-columns: minmax(0,1fr);">
+      <div class="panel">
+        <div class="panel-title">
+          <div><h3>Leaderboard</h3><p>Riskiest accounts first — severity, response quality, anomaly score, and frequency weighted</p></div>
+          <span class="panel-icon">▤</span>
+        </div>
+        <div class="leaderboard-list">
+          ${sorted.slice(0, 30).map((u, idx) => {
+            const tone = u.trust_score >= 80 ? "var(--sev-low)" : u.trust_score >= 60 ? "var(--cyan)" : u.trust_score >= 35 ? "var(--sev-high)" : "var(--sev-critical)";
+            const riskWord = (u.risk_level || "").replace(" Risk", "");
+            return `
+              <div class="leaderboard-row" data-trust-user="${escapeHtml(u.user)}">
+                <span class="rank">${idx + 1}</span>
+                <span class="name">${escapeHtml(u.user)}</span>
+                <span class="score" style="color:${tone}">${Math.round(u.trust_score)}</span>
+                <span class="${severityClass(riskWord)}" style="justify-self:end;">${escapeHtml(u.risk_level)}</span>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function metricsView() {
+  if (!metricsReport) {
+    loadMetrics();
+    return `<div class="loading-state">Loading MTTD/MTTR metrics…</div>`;
+  }
+  if (metricsReport.error) {
+    if (metricsReport.status === 403) return lockBanner("MTTD / MTTR Metrics");
+    return `<div class="notice error">Could not load metrics: ${escapeHtml(metricsReport.error)}</div>`;
+  }
+  const o = metricsReport.overall;
+  const bySeverity = metricsReport.by_severity || {};
+  return `
+    <section class="stats-grid">
+      ${statCard("Mean MTTD", fmtMinutes(o.mttd_mean), `Median ${fmtMinutes(o.mttd_median)}`, "warning")}
+      ${statCard("Mean MTTR", fmtMinutes(o.mttr_mean), `Median ${fmtMinutes(o.mttr_median)}`, "danger")}
+      ${statCard("Incidents measured", o.count, "Across the full correlated set", "cyan")}
+      ${statCard("Severity bands", Object.keys(bySeverity).length, "Breakdown rows below", "success")}
+    </section>
+    <section class="module-grid two-column">
+      <div class="panel">
+        <div class="panel-title">
+          <div><h3>By severity</h3><p>MTTD/MTTR mean &amp; median per severity band</p></div>
+          <span class="panel-icon">▦</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Severity</th><th>Count</th><th>MTTD mean</th><th>MTTR mean</th></tr></thead>
+            <tbody>
+              ${Object.entries(bySeverity).map(([sev, m]) => `
+                <tr>
+                  <td><span class="${severityClass(sev)}">${escapeHtml(sev)}</span></td>
+                  <td>${m.count}</td>
+                  <td>${fmtMinutes(m.mttd_mean)}</td>
+                  <td>${fmtMinutes(m.mttr_mean)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">
+          <div><h3>By attack type</h3><p>Detection &amp; response performance per attack category</p></div>
+          <span class="panel-icon">▦</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Attack type</th><th>Count</th><th>MTTD mean</th><th>MTTR mean</th></tr></thead>
+            <tbody>
+              ${Object.entries(metricsReport.by_attack_type || {}).map(([type, m]) => `
+                <tr>
+                  <td>${escapeHtml(type)}</td>
+                  <td>${m.count}</td>
+                  <td>${fmtMinutes(m.mttd_mean)}</td>
+                  <td>${fmtMinutes(m.mttr_mean)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function auditView() {
+  if (!auditLog) {
+    loadAudit();
+    return `<div class="loading-state">Loading audit trail…</div>`;
+  }
+  if (auditLog.error) {
+    return `<div class="notice error">Could not load audit log: ${escapeHtml(auditLog.error)}</div>`;
+  }
+  return `
+    <section class="module-grid two-column">
+      <div class="panel">
+        <div class="panel-title">
+          <div><h3>Audit trail</h3><p>Every sign-in, status change, and hunt query is recorded server-side</p></div>
+          <span class="panel-icon">≡</span>
+        </div>
+        <div class="audit-list">
+          ${auditLog.length ? auditLog.map((e) => `
+            <div class="audit-row">
+              <span>${escapeHtml(new Date(e.timestamp).toLocaleTimeString("en-US", { hour12: false }))}</span>
+              <div>
+                <b>${escapeHtml(e.action)}</b>
+                <p>${escapeHtml(e.actor)} · ${escapeHtml(e.actor_role)} ${e.target ? `· <span style="font-family:var(--font-mono);font-size:11px;">${escapeHtml(e.target)}</span>` : ""} ${e.detail ? `· ${escapeHtml(e.detail)}` : ""}</p>
+              </div>
+            </div>
+          `).join("") : `<p class="empty-state">No actions recorded yet this session.</p>`}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function systemHealthView() {
+  // Manager-only implementation detail (backend module status, API
+  // surface) — deliberately kept off the analyst-facing dashboard.
+  if (!systemHealth) {
+    loadSystemHealth();
+    return `<div class="loading-state">Loading system health…</div>`;
+  }
+  if (systemHealth.error) {
+    return `<div class="notice error">Could not load system health: ${escapeHtml(systemHealth.error)}${systemHealth.status === 403 ? " (manager role required)" : ""}</div>`;
+  }
+  return `
+    ${responsePanel()}
+    <section class="module-grid two-column">
+      ${sourcesPanel()}
+      ${backendPanel()}
+    </section>
+  `;
+}
+
+function responsePanel() {
+  if (!responseMode) {
+    loadResponseMode();
+    return `<div class="panel response-panel"><div class="loading-state">Loading response mode…</div></div>`;
+  }
+  if (responseMode.error) {
+    return `<div class="panel response-panel"><div class="notice error">Could not load response mode: ${escapeHtml(responseMode.error)}</div></div>`;
+  }
+
+  const isEnforce = responseMode.mode === "enforce";
+  const canManage = !!permissions.manage_response_mode;
+
+  return `
+    <div class="panel response-panel">
+      <div class="panel-title">
+        <div><h3>Response mode</h3><p>Notify only, or auto-contain Critical/High incidents on detection</p></div>
+        <span class="response-mode-badge ${isEnforce ? "is-enforce" : ""}">${isEnforce ? "Enforce" : "Notify"}</span>
+      </div>
+      <div class="response-mode-row ${isEnforce ? "is-enforce" : ""}">
+        <div class="response-mode-copy">
+          <b>${isEnforce ? "Auto-containment is ON" : "Auto-containment is OFF"}</b>
+          <p>
+            ${isEnforce
+              ? "New Critical and High severity incidents are automatically blocked or quarantined the moment they're detected, and marked Contained. Every automatic action is logged to the Audit Trail."
+              : "The system only surfaces incidents — analysts decide when to change status or respond. No incident is touched automatically."}
+          </p>
+        </div>
+        ${canManage ? `
+          <button
+            class="toggle-switch ${isEnforce ? "is-on" : ""}"
+            data-response-toggle
+            ${responseModeSaving ? "disabled" : ""}
+            role="switch" aria-checked="${isEnforce}" aria-label="Toggle enforce mode"
+          ><span class="knob"></span></button>
+        ` : `<span class="response-mode-badge">Manager only</span>`}
+      </div>
+    </div>
+  `;
+}
+
+/* ── Cyber Digital Twin rendering (lightweight force-directed canvas) ── */
+let graphFocusMode = true; // true = show users, segments, and highest-signal IPs only
+
+function riskColor(score) {
+  if (score >= 80) return "#E5484D";
+  if (score >= 60) return "#F5A623";
+  if (score >= 30) return "#E8C547";
+  if (score > 0)   return "#3FB68B";
+  return "#22D3EE";
+}
+
+function getGraphSubset() {
+  if (!graphData || !graphData.nodes) return { nodes: [], edges: [] };
+  if (!graphFocusMode) return graphData;
+
+  const keepIds = new Set();
+  graphData.nodes.forEach((n) => {
+    if (n.data.type === "user" || n.data.type === "segment") keepIds.add(n.data.id);
+  });
+  // Keep the highest-signal IP nodes (by risk, then by activity) so the
+  // graph stays readable while still reflecting real backend data.
+  const ipNodes = graphData.nodes
+    .filter((n) => n.data.type === "ip")
+    .sort((a, b) => (b.data.risk_score - a.data.risk_score) || (b.data.event_count - a.data.event_count));
+  ipNodes.slice(0, 40).forEach((n) => keepIds.add(n.data.id));
+
+  const nodes = graphData.nodes.filter((n) => keepIds.has(n.data.id));
+  const edges = graphData.edges.filter((e) => keepIds.has(e.data.source) && keepIds.has(e.data.target));
+  return { nodes, edges };
+}
+
+function drawGraph() {
+  const container = document.getElementById("cyGraph");
+  if (!container || !graphData || !graphData.nodes) return;
+
+  const subset = getGraphSubset();
+  const width = container.clientWidth || 600;
+  const height = container.clientHeight || 460;
+
+  const nodes = subset.nodes.map((n, idx) => ({
+    id: n.data.id,
+    label: n.data.label || n.data.id,
+    type: n.data.type,
+    risk: n.data.risk_score || 0,
+    x: width / 2 + Math.cos((idx / subset.nodes.length) * 2 * Math.PI) * (Math.min(width, height) / 2 - 60) + (Math.random() - 0.5) * 30,
+    y: height / 2 + Math.sin((idx / subset.nodes.length) * 2 * Math.PI) * (Math.min(width, height) / 2 - 60) + (Math.random() - 0.5) * 30,
+  }));
+  const nodeIndex = Object.fromEntries(nodes.map((n) => [n.id, n]));
+  const edges = subset.edges
+    .map((e) => ({ source: nodeIndex[e.data.source], target: nodeIndex[e.data.target] }))
+    .filter((e) => e.source && e.target);
+
+  // simple repulsion + spring relaxation, a handful of iterations is enough for a readable static layout
+  for (let iter = 0; iter < 140; iter++) {
+    for (let i = 0; i < nodes.length; i++) {
+      let fx = 0, fy = 0;
+      for (let j = 0; j < nodes.length; j++) {
+        if (i === j) continue;
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const distSq = Math.max(dx * dx + dy * dy, 60);
+        const force = 1400 / distSq;
+        fx += (dx / Math.sqrt(distSq)) * force;
+        fy += (dy / Math.sqrt(distSq)) * force;
+      }
+      nodes[i]._fx = fx; nodes[i]._fy = fy;
+    }
+    edges.forEach((e) => {
+      const dx = e.target.x - e.source.x;
+      const dy = e.target.y - e.source.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const targetDist = 110;
+      const k = (dist - targetDist) * 0.02;
+      e.source._fx += (dx / dist) * k; e.source._fy += (dy / dist) * k;
+      e.target._fx -= (dx / dist) * k; e.target._fy -= (dy / dist) * k;
+    });
+    nodes.forEach((n) => {
+      n.x += Math.max(-4, Math.min(4, n._fx));
+      n.y += Math.max(-4, Math.min(4, n._fy));
+      n.x = Math.max(46, Math.min(width - 46, n.x));
+      n.y = Math.max(46, Math.min(height - 46, n.y));
+    });
+  }
+
+  const svgEdges = edges.map((e) =>
+    `<line x1="${e.source.x}" y1="${e.source.y}" x2="${e.target.x}" y2="${e.target.y}" stroke="rgba(255,255,255,0.08)" stroke-width="1" />`
+  ).join("");
+
+  // Only label users and segments (and the very highest-risk IPs) so text doesn't overlap into noise.
+  const svgNodes = nodes.map((n) => {
+    const r = n.type === "segment" ? 12 : n.type === "user" ? 8 : 5;
+    const color = n.type === "segment" ? "#22D3EE" : riskColor(n.risk);
+    const showLabel = n.type === "segment" || n.type === "user" || n.risk >= 70;
+    const label = n.label.length > 13 ? n.label.slice(0, 12) + "…" : n.label;
+    return `
+      <g>
+        <circle cx="${n.x}" cy="${n.y}" r="${r}" fill="${color}" fill-opacity="0.88" stroke="${color}" stroke-width="1.5">
+          <title>${escapeHtml(n.label)} (${escapeHtml(n.type)}, risk ${Math.round(n.risk)})</title>
+        </circle>
+        ${showLabel ? `<text x="${n.x}" y="${n.y + r + 11}" fill="#8A96A6" font-size="9" font-family="IBM Plex Mono, monospace" text-anchor="middle">${escapeHtml(label)}</text>` : ""}
+      </g>
+    `;
+  }).join("");
+
+  container.innerHTML = `<svg width="100%" height="100%" viewBox="0 0 ${width} ${height}">${svgEdges}${svgNodes}</svg>`;
+}
+
+/* ── Export (client-side text report, no backend round trip needed) ── */
+function exportIncidentReport(incident) {
+  const lines = [
+    `CYBER CONTROL TOWER — INCIDENT REPORT`,
+    `Generated: ${new Date().toLocaleString()}`,
+    `Generated by: ${currentUser.display_name} (${currentUser.role_label})`,
+    ``,
+    `Incident ID:      ${incident.incident_id}`,
+    `Status:           ${incident.status}`,
+    `Severity:         ${incident.severity}`,
+    `Risk score:       ${incident.risk_score} (${riskLabel(incident.risk_score)})`,
+    `Attack type:      ${incident.attack_type}`,
+    `User:             ${incident.user}`,
+    `Network segment:  ${incident.network_segment}`,
+    `Source IP:        ${incident.source_ip}`,
+    `Destination IP:   ${incident.dst_ip}`,
+    `Action taken:     ${incident.action_taken}`,
+    `Event count:      ${incident.event_count}`,
+    `MTTD:             ${fmtMinutes(incident.mttd_minutes)}`,
+    `MTTR:             ${fmtMinutes(incident.mttr_minutes)}`,
+    `Correlation:      ${incident.correlation_reason}`,
+    `Attack chain:     ${(incident.attack_chain || []).join(" -> ")}`,
+    `MITRE techniques: ${(incident.mitre_techniques || []).map((t) => `${t.technique_id} ${t.technique_name}`).join(", ")}`,
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${incident.incident_id}-report.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ── Event binding ── */
+function bindEvents() {
+  const sidebarToggleBtn = document.querySelector("[data-sidebar-toggle]");
+  if (sidebarToggleBtn) {
+    sidebarToggleBtn.addEventListener("click", () => {
+      sidebarOpen = true;
+      render();
+    });
+  }
+
+  const sidebarCloseBtn = document.querySelector("[data-sidebar-close]");
+  if (sidebarCloseBtn) {
+    sidebarCloseBtn.addEventListener("click", () => {
+      sidebarOpen = false;
+      render();
+    });
+  }
+
+  const sidebarBackdrop = document.querySelector("[data-sidebar-backdrop]");
+  if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener("click", () => {
+      sidebarOpen = false;
+      render();
+    });
+  }
+
+  document.querySelectorAll("[data-nav]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.nav;
+      if (btn.dataset.locked) {
+        showError(`${pageMeta[key]?.title || "This view"} requires the SOC Manager role.`);
+        return;
+      }
+      transientError = "";
+      notice = "";
+      activePage = key;
+      sidebarOpen = false; // auto-close on narrow viewports after picking a page
+      render();
+    });
+  });
+
+  const logoutBtn = document.querySelector("[data-logout]");
+  if (logoutBtn) logoutBtn.addEventListener("click", handleLogout);
+
+  const refreshBtn = document.querySelector("[data-refresh]");
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", () => {
+      incidentsLoaded = false;
+      incidentsError = "";
+      summary = null;
+      graphData = null;
+      mitreHeatmap = null;
+      trustBoard = null;
+      metricsReport = null;
+      auditLog = null;
+      render();
+    });
+  }
+
+  const retryBtn = document.querySelector("[data-retry-incidents]");
+  if (retryBtn) retryBtn.addEventListener("click", () => { incidentsError = ""; loadIncidents(); });
+
+  document.querySelectorAll("[data-select-incident]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      selectedId = btn.dataset.selectIncident;
+      render();
+    });
+  });
+
+  const searchInput = document.getElementById("searchInput");
+  if (searchInput) {
+    searchInput.addEventListener("input", debounce((e) => {
+      query = e.target.value;
+      render();
+    }, 180));
+  }
+
+  const sevFilter = document.getElementById("severityFilter");
+  if (sevFilter) {
+    sevFilter.addEventListener("change", (e) => {
+      severityFilter = e.target.value;
+      render();
+    });
+  }
+
+  const statFilter = document.getElementById("statusFilter");
+  if (statFilter) {
+    statFilter.addEventListener("change", (e) => {
+      statusFilter = e.target.value;
+      render();
+    });
+  }
+
+  document.querySelectorAll("[data-status-select]").forEach((select) => {
+    select.addEventListener("change", (e) => {
+      changeIncidentStatus(select.dataset.statusSelect, e.target.value);
+    });
+  });
+
+  document.querySelectorAll("[data-quick-status]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const [id, status] = btn.dataset.quickStatus.split("|");
+      changeIncidentStatus(id, status);
+    });
+  });
+
+  document.querySelectorAll("[data-export-incident]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const incident = incidents.find((i) => i.incident_id === btn.dataset.exportIncident);
+      if (incident) {
+        exportIncidentReport(incident);
+        notice = `Exported report for ${incident.incident_id}.`;
+        render();
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-trust-user]").forEach((row) => {
+    row.addEventListener("click", () => {
+      query = row.dataset.trustUser;
+      activePage = "triage";
+      render();
+    });
+  });
+
+  const huntInput = document.getElementById("huntInput");
+  const runHuntBtn = document.querySelector("[data-run-hunt]");
+  if (huntInput) {
+    huntInput.addEventListener("input", (e) => { huntQuery = e.target.value; });
+    huntInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") runHunt(huntInput.value);
+    });
+  }
+  if (runHuntBtn) runHuntBtn.addEventListener("click", () => runHunt(huntInput ? huntInput.value : huntQuery));
+
+  document.querySelectorAll("[data-hunt-chip]").forEach((chip) => {
+    chip.addEventListener("click", () => runHunt(chip.dataset.huntChip));
+  });
+
+  const responseToggle = document.querySelector("[data-response-toggle]");
+  if (responseToggle) {
+    responseToggle.addEventListener("click", () => {
+      const turningOn = !responseToggle.classList.contains("is-on");
+      if (turningOn && !confirm(
+        "Turn on enforce mode?\n\nNew Critical and High severity incidents will be automatically " +
+        "blocked/quarantined the moment they're detected, without an analyst reviewing them first."
+      )) {
+        return;
+      }
+      saveResponseMode(turningOn ? "enforce" : "notify");
+    });
+  }
+
+  document.querySelectorAll("[data-respond-incident]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      respondToIncident(btn.dataset.respondIncident);
+    });
+  });
+
+  const graphToggle = document.querySelector("[data-graph-toggle]");
+  if (graphToggle) {
+    graphToggle.addEventListener("click", () => {
+      graphFocusMode = !graphFocusMode;
+      render();
+    });
+  }
+
+  if (activePage === "twin" && graphData && !graphData.error) {
+    requestAnimationFrame(drawGraph);
+  }
+}
+
+/* ── Boot ── */
+window.addEventListener("resize", debounce(() => {
+  if (activePage === "twin" && graphData && !graphData.error) drawGraph();
+}, 200));
+
+bootstrap();
+
+
+
+
+
+
+
+</script>
+</body>
+</html>
