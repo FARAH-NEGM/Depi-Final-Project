@@ -33,6 +33,7 @@ PERMISSIONS: dict[str, dict[str, bool]] = {
         "view_trust_scores":      False,
         "view_metrics":           False,
         "view_system_health":     False,
+        "manage_response_mode":   False,
     },
     ROLE_MANAGER: {
         "view_incidents":        True,
@@ -45,6 +46,7 @@ PERMISSIONS: dict[str, dict[str, bool]] = {
         "view_trust_scores":      True,
         "view_metrics":           True,
         "view_system_health":     True,
+        "manage_response_mode":   True,
     },
 }
 
