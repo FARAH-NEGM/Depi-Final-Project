@@ -2240,8 +2240,7 @@ function renderStats() {
       ${statCard("Contained / Resolved", containedCount, "Moved through the workflow", "success")}
     </section>
     <section class="stats-grid">
-      ${statCard("Critical incidents", summary.critical_incidents, "Risk level: Critical", "danger")}
-      ${statCard("Avg MTTD", fmtMinutes(avgMttd), "Mean time to detect, all incidents", "cyan")}
+      
       ${statCard("Avg MTTR", resolved.length ? fmtMinutes(avgMttr) : "—", "Mean time to resolve, resolved only", "success")}
       ${statCard("SLA breaches", summary.sla_breaches, "Detection, response, or containment", "warning")}
     </section>

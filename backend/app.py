@@ -487,7 +487,11 @@ def api_summary():
     multi_event = sum(1 for i in incidents if i.event_count > 1)
     chains      = sum(1 for i in incidents if i.chain_confidence > 0.5)
 
-    critical_incidents = sum(1 for i in incidents if i.risk_level == "Critical")
+    critical_open_incidents =sum(
+    1 for i in incidents
+    if str(i.severity).strip().lower() == "critical"
+    and str(i.status).strip().lower() in {"open", "investigating"}
+)
     assets_affected = len({i.asset_id for i in incidents})
     users_affected  = len({u for i in incidents for u in i.affected_users})
     sla_breaches = sum(
@@ -507,7 +511,7 @@ def api_summary():
         "risk_level_breakdown":  risk_counts,
         "status_breakdown":      status_counts,
         "overall_mttd_mttr":     report["overall"],
-        "critical_incidents":    critical_incidents,
+        "critical_open_incidents": critical_open_incidents,
         "assets_affected":       assets_affected,
         "users_affected":        users_affected,
         "sla_breaches":          sla_breaches,
