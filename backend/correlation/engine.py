@@ -65,6 +65,27 @@ SEVERITY_RISK  = {"Low": 15, "Medium": 40, "High": 70, "Critical": 100}
 VALID_STATUSES: list[str] = ["Open", "Investigating", "Contained", "Resolved"]
 
 # ---------------------------------------------------------------------------
+# SLA targets (minutes) — standard SOC KPI targets, scaled by severity.
+# An incident "breaches" a stage's SLA if the actual elapsed time for that
+# stage exceeds the target.
+# ---------------------------------------------------------------------------
+DETECTION_SLA_MINUTES: dict[str, float] = {
+    "Critical": 15, "High": 30, "Medium": 60, "Low": 120,
+}
+RESPONSE_SLA_MINUTES: dict[str, float] = {
+    "Critical": 30, "High": 60, "Medium": 120, "Low": 240,
+}
+CONTAINMENT_SLA_MINUTES: dict[str, float] = {
+    "Critical": 60, "High": 120, "Medium": 240, "Low": 480,
+}
+
+# Small fixed analyst roster the assignment draws from — stands in for a
+# real ticketing/identity system in this demo.
+ANALYST_ROSTER: list[str] = [
+    "A. Chen", "R. Iyer", "M. Alvarez", "S. Okafor", "P. Novak",
+]
+
+# ---------------------------------------------------------------------------
 # Multi-Stage Attack Chain Definitions
 # ---------------------------------------------------------------------------
 ATTACK_TYPE_TO_STAGE: dict[str, str] = {
@@ -171,6 +192,40 @@ class Incident:
     # handled, so the incident queue isn't full of "Open" on first load.
     status:            str        = "Open"
 
+    # --- endpoint / asset context (v4) ---
+    # SOC analysts investigate endpoints, not just user accounts. Hostname,
+    # asset ID, and OS are derived deterministically from the underlying
+    # event's user + device fingerprint (the dataset has no native asset
+    # inventory), so the same "asset" always resolves to the same identity
+    # across incidents.
+    hostname:          str        = ""
+    device_name:       str        = ""
+    asset_id:          str        = ""
+    business_unit:     str        = ""
+    os_name:           str        = ""
+
+    # --- SLA (v4) ---
+    detection_sla_minutes:   float = 0.0
+    response_sla_minutes:    float = 0.0
+    containment_sla_minutes: float = 0.0
+    detection_sla_breached:  bool  = False
+    response_sla_breached:   bool  = False
+    containment_sla_breached: bool = False
+
+    # --- ownership (v4) ---
+    assigned_analyst: str        = "Unassigned"
+
+    # --- correlation confidence (v4) ---
+    # How confident the correlation engine is that the related_events all
+    # belong to the same incident (distinct from chain_confidence, which is
+    # about attack-chain/kill-chain pattern matching).
+    correlation_confidence: float = 0.0
+
+    # --- last seen (v4) ---
+    # Alias of end_time exposed under a clearer name for the UI — whether
+    # the underlying activity is still recent.
+    last_seen:         str        = ""
+
     def to_dict(self) -> dict:
         return asdict(self)
 
@@ -253,6 +308,104 @@ def _build_mitre_chain(stages: list[str]) -> list[str]:
     return seen
 
 
+def _parse_os(device_info: str) -> str:
+    """Best-effort OS family extraction from the raw user-agent string."""
+    s = (device_info or "").lower()
+    if "windows" in s:
+        return "Windows"
+    if "iphone" in s or "ipad" in s:
+        return "iOS"
+    if "macintosh" in s or "mac os x" in s:
+        return "macOS"
+    if "android" in s:
+        return "Android"
+    if "linux" in s:
+        return "Linux"
+    return "Unknown"
+
+
+def _asset_identity(user: str, device_info: str) -> tuple[str, str, str, str, str]:
+    """
+    Deterministically derive endpoint context (hostname, device name, asset
+    ID, business unit) from the user + device fingerprint, since the
+    dataset has no native asset-inventory table. Deterministic per user, so
+    the same "asset" resolves consistently across every incident it
+    appears in.
+    """
+    seed = hashlib.sha1(user.encode()).hexdigest()
+    business_units = ["Finance", "Engineering", "Sales", "HR", "Operations", "IT", "Legal", "Marketing"]
+    device_kinds   = ["LAP", "WKS", "SRV"]
+
+    bu       = business_units[int(seed[0:2], 16) % len(business_units)]
+    kind     = device_kinds[int(seed[2:3], 16) % len(device_kinds)]
+    num      = int(seed[3:6], 16) % 999
+    device_name = f"{bu[:3].upper()}-{kind}-{num:03d}"
+    hostname    = f"{device_name.lower()}.corp.local"
+    asset_id    = f"AST-{seed[:6].upper()}"
+    os_name     = _parse_os(device_info)
+
+    return hostname, device_name, asset_id, bu, os_name
+
+
+def _assign_analyst(incident_id: str, status: str) -> str:
+    """
+    Deterministic round-robin assignment: incidents still Open have no
+    owner yet (mirrors a real triage queue); everything moved past Open
+    has been picked up by an analyst.
+    """
+    if status == "Open":
+        return "Unassigned"
+    idx = int(hashlib.sha1(incident_id.encode()).hexdigest(), 16) % len(ANALYST_ROSTER)
+    return ANALYST_ROSTER[idx]
+
+
+def _correlation_confidence(group: list) -> float:
+    """
+    How confident the correlation engine is that every event in this group
+    genuinely belongs to one incident — distinct from chain_confidence
+    (which measures kill-chain pattern match). Blends attack-type and
+    network-segment consistency across the group; a single-event incident
+    is trivially 100% confident it is itself.
+    """
+    if len(group) <= 1:
+        return 1.0
+    dominant_type    = _dominant([e.attack_type for e in group])
+    dominant_segment = _dominant([e.network_segment for e in group])
+    type_consistency    = sum(1 for e in group if e.attack_type == dominant_type) / len(group)
+    segment_consistency = sum(1 for e in group if e.network_segment == dominant_segment) / len(group)
+    conf = 0.2 + 0.5 * type_consistency + 0.3 * segment_consistency
+    return round(min(1.0, conf), 2)
+
+
+def _compute_sla(
+    severity: str,
+    mttd_minutes: float,
+    mttr_minutes: float,
+    status: str,
+) -> dict:
+    det_target  = DETECTION_SLA_MINUTES.get(severity, 60)
+    resp_target = RESPONSE_SLA_MINUTES.get(severity, 120)
+    cont_target = CONTAINMENT_SLA_MINUTES.get(severity, 240)
+
+    detection_breached = mttd_minutes > det_target
+    response_breached  = mttr_minutes > resp_target
+    # Containment SLA only meaningfully evaluated once an incident has
+    # actually reached Contained/Resolved — total handling time vs target.
+    total_handling = mttd_minutes + mttr_minutes
+    containment_breached = (
+        status in ("Contained", "Resolved") and total_handling > cont_target
+    )
+
+    return {
+        "detection_sla_minutes":    det_target,
+        "response_sla_minutes":     resp_target,
+        "containment_sla_minutes":  cont_target,
+        "detection_sla_breached":   detection_breached,
+        "response_sla_breached":    response_breached,
+        "containment_sla_breached": containment_breached,
+    }
+
+
 def _initial_status(action_taken: str) -> str:
     """
     Derive a sensible starting workflow status from how the underlying
@@ -280,11 +433,23 @@ def _compute_risk_score(
     mitre_chain: list[str],
     chain_conf:  float,
 ) -> tuple[float, str]:
+    """
+    Deterministic, server-side, and documented so the UI can show exactly
+    how the number was derived (see tooltip in the frontend):
+
+        Risk Score = 40% Severity
+                    + 20% Event Count
+                    + 20% Attack Chain Confidence
+                    + 20% MITRE Criticality
+
+    Each component is normalised to 0-100 before weighting; the final
+    value is clamped to 0-100.
+    """
     import math
 
     sev_score   = SEVERITY_RISK.get(severity, 40)
     count_score = min(100.0, 100 * math.log1p(event_count) / math.log1p(20))
-    chain_score = min(100.0, (len(chain) / max(len(KILL_CHAIN), 1)) * 100 * (chain_conf or 0.1)) if chain else 0
+    chain_score = min(100.0, (chain_conf or 0.0) * 100)
     tactic_avg  = (
         sum(TACTIC_CRITICALITY.get(t, 0.5) for t in mitre_chain) / len(mitre_chain) * 100
         if mitre_chain else 40.0
@@ -293,8 +458,8 @@ def _compute_risk_score(
     raw = (
         0.40 * sev_score +
         0.20 * count_score +
-        0.25 * chain_score +
-        0.15 * tactic_avg
+        0.20 * chain_score +
+        0.20 * tactic_avg
     )
     score = round(min(100.0, max(0.0, raw)), 2)
 
@@ -341,8 +506,16 @@ def _build_incident(
         severity, len(group), attack_chain or stages, mitre_chain, chain_conf
     )
 
+    status       = _initial_status(action)
+    incident_id  = _make_incident_id(group)
+    end_time_iso = group_sorted[-1].timestamp.isoformat()
+    hostname, device_name, asset_id, business_unit, os_name = _asset_identity(
+        dominant_user, primary.device_info
+    )
+    sla = _compute_sla(severity, mttd, mttr, status)
+
     return Incident(
-        incident_id        = _make_incident_id(group),
+        incident_id        = incident_id,
         thread_id          = thread_id,
         event_id           = primary.event_id,
         source_ip          = primary.src_ip,
@@ -360,7 +533,7 @@ def _build_incident(
         related_events     = [e.event_id for e in group_sorted],
         event_count        = len(group),
         start_time         = group_sorted[0].timestamp.isoformat(),
-        end_time           = group_sorted[-1].timestamp.isoformat(),
+        end_time           = end_time_iso,
         affected_users     = sorted(set(e.user   for e in group)),
         affected_ips       = sorted(set(e.src_ip for e in group) | set(e.dst_ip for e in group)),
         correlation_reason = correlation_reason,
@@ -370,7 +543,16 @@ def _build_incident(
         mitre_chain        = mitre_chain,
         risk_score         = risk_score,
         risk_level         = risk_level,
-        status             = _initial_status(action),
+        status             = status,
+        hostname           = hostname,
+        device_name        = device_name,
+        asset_id           = asset_id,
+        business_unit      = business_unit,
+        os_name            = os_name,
+        assigned_analyst   = _assign_analyst(incident_id, status),
+        correlation_confidence = _correlation_confidence(group),
+        last_seen          = end_time_iso,
+        **sla,
     )
 
 
@@ -506,8 +688,16 @@ def correlate_events(events: Optional[list[Event]] = None) -> list[Incident]:
             mttr   = rng.uniform(res_lo, res_hi)
             res_at = det_at + timedelta(minutes=mttr)
 
+            status = _initial_status(event.action_taken)
+            incident_id = f"INC-{event.event_id.replace('EVT-','')}"
+            end_time_iso = event.timestamp.isoformat()
+            hostname, device_name, asset_id, business_unit, os_name = _asset_identity(
+                event.user, event.device_info
+            )
+            sla = _compute_sla(event.severity, mttd, mttr, status)
+
             incidents.append(Incident(
-                incident_id        = f"INC-{event.event_id.replace('EVT-','')}",
+                incident_id        = incident_id,
                 thread_id          = tid,
                 event_id           = event.event_id,
                 source_ip          = event.src_ip,
@@ -525,7 +715,7 @@ def correlate_events(events: Optional[list[Event]] = None) -> list[Incident]:
                 related_events     = [event.event_id],
                 event_count        = 1,
                 start_time         = event.timestamp.isoformat(),
-                end_time           = event.timestamp.isoformat(),
+                end_time           = end_time_iso,
                 affected_users     = [event.user],
                 affected_ips       = [event.src_ip, event.dst_ip],
                 correlation_reason = "single event — no correlated peers found",
@@ -535,7 +725,16 @@ def correlate_events(events: Optional[list[Event]] = None) -> list[Incident]:
                 mitre_chain        = mchain,
                 risk_score         = risk,
                 risk_level         = rlevel,
-                status             = _initial_status(event.action_taken),
+                status             = status,
+                hostname           = hostname,
+                device_name        = device_name,
+                asset_id           = asset_id,
+                business_unit      = business_unit,
+                os_name            = os_name,
+                assigned_analyst   = _assign_analyst(incident_id, status),
+                correlation_confidence = 1.0,
+                last_seen          = end_time_iso,
+                **sla,
             ))
 
     incidents.sort(key=lambda i: i.occurred_at)
@@ -571,8 +770,37 @@ def update_incident_status(incident_id: str, new_status: str) -> Incident | None
     for inc in incidents:
         if inc.incident_id == incident_id:
             inc.status = new_status
+            if inc.assigned_analyst == "Unassigned" and new_status != "Open":
+                inc.assigned_analyst = _assign_analyst(inc.incident_id, new_status)
+            sla = _compute_sla(inc.severity, inc.mttd_minutes, inc.mttr_minutes, new_status)
+            inc.containment_sla_breached = sla["containment_sla_breached"]
             return inc
     return None
+
+
+def correlation_stats(events: Optional[list] = None, incidents: Optional[list[Incident]] = None) -> dict:
+    """
+    Surfaces *why* N raw events became M incidents — the correlation
+    engine's actual value, instead of showing bare totals with no
+    explanation. "Duplicate events merged" = events that were folded into
+    a multi-event incident rather than standing alone.
+    """
+    events = events if events is not None else get_events()
+    incidents = incidents if incidents is not None else get_incidents()
+
+    total_events = len(events)
+    total_incidents = len(incidents)
+    merged_events = sum(i.event_count for i in incidents if i.event_count > 1)
+    multi_event_incidents = sum(1 for i in incidents if i.event_count > 1)
+    duplicates_merged = merged_events - multi_event_incidents  # events absorbed into an existing incident
+
+    return {
+        "raw_events": total_events,
+        "correlated_incidents": total_incidents,
+        "multi_event_incidents": multi_event_incidents,
+        "duplicate_events_merged": duplicates_merged,
+        "reduction_pct": round(100 * (1 - total_incidents / total_events), 1) if total_events else 0,
+    }
 
 
 if __name__ == "__main__":

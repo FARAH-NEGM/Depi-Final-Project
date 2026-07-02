@@ -22,6 +22,7 @@ from flask import Flask, jsonify, redirect, request, send_from_directory, sessio
 from ingestion.loader import get_events
 from correlation.engine import (
     get_incidents, get_user_threads, update_incident_status, VALID_STATUSES,
+    correlation_stats,
 )
 from mitre.enrichment import enrich_incidents, enrich_incident, mitre_heatmap
 from mitre.mapping import ATTACK_TYPE_TO_MITRE
@@ -295,6 +296,15 @@ def api_incident_statuses():
 
 
 # ---------------------------------------------------------------------------
+# NEW v4: correlation transparency — why N events became M incidents
+# ---------------------------------------------------------------------------
+@app.route("/api/correlation-stats")
+@login_required
+def api_correlation_stats():
+    return jsonify(correlation_stats())
+
+
+# ---------------------------------------------------------------------------
 # MITRE ATT&CK
 # ---------------------------------------------------------------------------
 @app.route("/api/mitre/heatmap")
@@ -350,6 +360,32 @@ def api_trust_score_user(user: str):
 @role_required("view_metrics")
 def api_metrics():
     return jsonify(full_report())
+
+
+# ---------------------------------------------------------------------------
+# NEW v4: System Health — implementation detail moved out of the analyst
+# dashboard and behind a manager-only capability (Admin / System Health).
+# ---------------------------------------------------------------------------
+@app.route("/api/system-health")
+@role_required("view_system_health")
+def api_system_health():
+    events = get_events()
+    incidents = get_incidents()
+    return jsonify({
+        "modules": [
+            {"name": "Ingestion layer",    "status": "Online", "detail": f"{len(events)} events"},
+            {"name": "Correlation engine", "status": "Online", "detail": f"{len(incidents)} incidents"},
+            {"name": "MITRE mapping",      "status": "Online", "detail": "dynamic per-event"},
+            {"name": "Trust Score engine", "status": "Online", "detail": f"{len(get_leaderboard())} users scored"},
+        ],
+        "api_endpoints": [
+            "GET /api/summary", "GET /api/incidents", "GET /api/incidents/<id>",
+            "POST /api/incidents/<id>/status", "GET /api/mitre/heatmap",
+            "GET /api/trust-scores", "GET /api/metrics", "GET /api/graph",
+            "GET /api/live-feed", "GET /api/search", "GET /api/audit",
+            "GET /api/correlation-stats",
+        ],
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -451,6 +487,14 @@ def api_summary():
     multi_event = sum(1 for i in incidents if i.event_count > 1)
     chains      = sum(1 for i in incidents if i.chain_confidence > 0.5)
 
+    critical_incidents = sum(1 for i in incidents if i.risk_level == "Critical")
+    assets_affected = len({i.asset_id for i in incidents})
+    users_affected  = len({u for i in incidents for u in i.affected_users})
+    sla_breaches = sum(
+        1 for i in incidents
+        if i.detection_sla_breached or i.response_sla_breached or i.containment_sla_breached
+    )
+
     payload = {
         "total_events":          len(events),
         "total_incidents":       len(incidents),
@@ -463,6 +507,10 @@ def api_summary():
         "risk_level_breakdown":  risk_counts,
         "status_breakdown":      status_counts,
         "overall_mttd_mttr":     report["overall"],
+        "critical_incidents":    critical_incidents,
+        "assets_affected":       assets_affected,
+        "users_affected":        users_affected,
+        "sla_breaches":          sla_breaches,
     }
 
     user = current_user()
