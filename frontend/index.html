@@ -263,6 +263,48 @@ a { color: var(--accent); text-decoration: none; }
   flex-direction: column;
   overflow-y: auto;
   flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+/* Hamburger button that opens the sidebar on narrow viewports.
+   Hidden by default; only shown under the 1180px breakpoint below. */
+.sidebar-menu-btn {
+  display: none;
+  position: fixed;
+  top: 14px; left: 14px;
+  z-index: 40;
+  width: 40px; height: 40px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  cursor: pointer;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.sidebar-menu-btn span {
+  display: block;
+  width: 18px; height: 2px;
+  background: var(--text-main);
+  border-radius: 2px;
+}
+
+.sidebar-close-btn {
+  display: none;
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+/* Dark overlay behind the sidebar when it's open as a drawer on
+   narrow viewports. Hidden on desktop; toggled via .is-visible. */
+.sidebar-backdrop {
+  display: none;
 }
 
 .brand {
@@ -1308,7 +1350,24 @@ tbody tr:hover td { background: var(--accent-glow); border-color: var(--accent);
 }
 
 @media (max-width: 1180px) {
-  .sidebar { display: none; }
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    z-index: 41;
+    transform: translateX(-100%);
+    box-shadow: 0 0 40px rgba(0,0,0,0.4);
+  }
+  .sidebar.is-open { transform: translateX(0); }
+  .sidebar-menu-btn { display: flex; }
+  .sidebar-close-btn { display: block; }
+  .sidebar-backdrop.is-visible {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 40;
+  }
+  .main { padding-top: 64px; } /* room for the fixed hamburger button */
   .workspace, .module-layout { grid-template-columns: 1fr; }
   .right-column, .module-layout .right-column { grid-template-columns: 1fr; }
   .middle-grid, .charts-grid, .module-grid.two-column { grid-template-columns: 1fr; }
@@ -1370,6 +1429,7 @@ let authSuccess    = "";
 let authSubmitting = false;
 
 let activePage = "command";
+let sidebarOpen = false; // mobile/narrow-viewport sidebar toggle (< 1180px)
 let incidents = [];
 let incidentsLoaded = false;
 let incidentsError = "";
@@ -1717,6 +1777,7 @@ async function handleLogout() {
 
 function resetWorkspaceState() {
   activePage = "command";
+  sidebarOpen = false;
   incidents = [];
   incidentsLoaded = false;
   incidentsError = "";
@@ -2013,10 +2074,15 @@ function render() {
 
   app.innerHTML = `
     <div class="cct-app">
-      <aside class="sidebar">
+      <button class="sidebar-menu-btn" data-sidebar-toggle aria-label="Open navigation" aria-expanded="${sidebarOpen}">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="sidebar-backdrop ${sidebarOpen ? "is-visible" : ""}" data-sidebar-backdrop></div>
+      <aside class="sidebar ${sidebarOpen ? "is-open" : ""}">
         <div class="brand">
           <div class="logo">⛭</div>
           <div><h1>CCT</h1><p>Cyber Control Tower</p></div>
+          <button class="sidebar-close-btn" data-sidebar-close aria-label="Close navigation">✕</button>
         </div>
         <div class="user-card">
           <div class="user-card-id">
@@ -2976,6 +3042,30 @@ function exportIncidentReport(incident) {
 
 /* ── Event binding ── */
 function bindEvents() {
+  const sidebarToggleBtn = document.querySelector("[data-sidebar-toggle]");
+  if (sidebarToggleBtn) {
+    sidebarToggleBtn.addEventListener("click", () => {
+      sidebarOpen = true;
+      render();
+    });
+  }
+
+  const sidebarCloseBtn = document.querySelector("[data-sidebar-close]");
+  if (sidebarCloseBtn) {
+    sidebarCloseBtn.addEventListener("click", () => {
+      sidebarOpen = false;
+      render();
+    });
+  }
+
+  const sidebarBackdrop = document.querySelector("[data-sidebar-backdrop]");
+  if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener("click", () => {
+      sidebarOpen = false;
+      render();
+    });
+  }
+
   document.querySelectorAll("[data-nav]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const key = btn.dataset.nav;
@@ -2986,6 +3076,7 @@ function bindEvents() {
       transientError = "";
       notice = "";
       activePage = key;
+      sidebarOpen = false; // auto-close on narrow viewports after picking a page
       render();
     });
   });
