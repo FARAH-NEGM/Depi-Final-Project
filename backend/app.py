@@ -36,6 +36,14 @@ from auth.users import authenticate, get_user, list_demo_accounts, register
 from auth.permissions import permissions_for, can
 from auth.audit import record as record_audit, get_log as get_audit_log
 
+from response.engine import (
+    get_mode as get_response_mode,
+    set_mode as set_response_mode,
+    apply_response,
+    auto_respond_all,
+    VALID_MODES as VALID_RESPONSE_MODES,
+)
+
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="")
@@ -225,12 +233,74 @@ def api_events():
 
 
 # ---------------------------------------------------------------------------
+# Response engine (notify vs. enforce)
+# ---------------------------------------------------------------------------
+def _audit_auto_response(incident, result):
+    record_audit("system", "Automated Response",
+                 "Auto-executed response action", target=incident.incident_id,
+                 detail=f"{result['action']} ({incident.attack_type})")
+
+
+def get_incidents_with_auto_response():
+    """
+    Same as get_incidents(), but first sweeps for any incident that
+    qualifies for auto-response under the current mode (see
+    response/engine.py) and applies + audits it. In "notify" mode this is
+    a no-op — behavior is identical to plain get_incidents().
+    """
+    incidents = get_incidents()
+    auto_respond_all(incidents, audit_fn=_audit_auto_response)
+    return incidents
+
+
+@app.route("/api/settings/response-mode", methods=["GET"])
+@login_required
+def api_get_response_mode():
+    return jsonify({"mode": get_response_mode(), "valid_modes": VALID_RESPONSE_MODES})
+
+
+@app.route("/api/settings/response-mode", methods=["POST"])
+@role_required("manage_response_mode")
+def api_set_response_mode():
+    user = current_user()
+    body = request.get_json(silent=True) or {}
+    mode = (body.get("mode") or "").strip()
+
+    try:
+        new_mode = set_response_mode(mode)
+    except ValueError:
+        return jsonify({"error": "invalid mode", "valid_modes": VALID_RESPONSE_MODES}), 400
+
+    record_audit(user.username, user.to_public_dict()["role_label"],
+                 "Changed response mode", target=new_mode)
+    return jsonify({"mode": new_mode})
+
+
+@app.route("/api/incidents/<incident_id>/respond", methods=["POST"])
+@role_required("manage_response_mode")
+def api_incident_respond(incident_id: str):
+    """Manual trigger — take protective action on a single incident right
+    now, regardless of the global mode."""
+    user = current_user()
+    incidents = get_incidents()
+    match = next((i for i in incidents if i.incident_id == incident_id), None)
+    if not match:
+        return jsonify({"error": "not found"}), 404
+
+    result = apply_response(match, actor=user.username)
+    record_audit(user.username, user.to_public_dict()["role_label"],
+                 "Executed response action", target=incident_id,
+                 detail=f"{result['action']} ({match.attack_type})")
+    return jsonify(enrich_incident(match))
+
+
+# ---------------------------------------------------------------------------
 # Incidents
 # ---------------------------------------------------------------------------
 @app.route("/api/incidents")
 @login_required
 def api_incidents():
-    incidents = get_incidents()
+    incidents = get_incidents_with_auto_response()
     enriched  = enrich_incidents(incidents)
 
     severity    = request.args.get("severity")
@@ -377,13 +447,15 @@ def api_system_health():
             {"name": "Correlation engine", "status": "Online", "detail": f"{len(incidents)} incidents"},
             {"name": "MITRE mapping",      "status": "Online", "detail": "dynamic per-event"},
             {"name": "Trust Score engine", "status": "Online", "detail": f"{len(get_leaderboard())} users scored"},
+            {"name": "Response engine",    "status": "Online", "detail": f"mode: {get_response_mode()}"},
         ],
         "api_endpoints": [
             "GET /api/summary", "GET /api/incidents", "GET /api/incidents/<id>",
-            "POST /api/incidents/<id>/status", "GET /api/mitre/heatmap",
-            "GET /api/trust-scores", "GET /api/metrics", "GET /api/graph",
-            "GET /api/live-feed", "GET /api/search", "GET /api/audit",
-            "GET /api/correlation-stats",
+            "POST /api/incidents/<id>/status", "POST /api/incidents/<id>/respond",
+            "GET /api/mitre/heatmap", "GET /api/trust-scores", "GET /api/metrics",
+            "GET /api/graph", "GET /api/live-feed", "GET /api/search",
+            "GET /api/audit", "GET /api/correlation-stats",
+            "GET|POST /api/settings/response-mode",
         ],
     })
 
@@ -448,7 +520,7 @@ def api_audit():
 @app.route("/api/risk-summary")
 @login_required
 def api_risk_summary():
-    incidents = get_incidents()
+    incidents = get_incidents_with_auto_response()
     dist = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
     for i in incidents:
         dist[i.risk_level] = dist.get(i.risk_level, 0) + 1
@@ -469,7 +541,7 @@ def api_risk_summary():
 @login_required
 def api_summary():
     events    = get_events()
-    incidents = get_incidents()
+    incidents = get_incidents_with_auto_response()
     threads   = get_user_threads(incidents)
     report    = full_report(incidents)
 
