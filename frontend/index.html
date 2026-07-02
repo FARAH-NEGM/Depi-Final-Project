@@ -868,6 +868,79 @@ nav button .nav-lock { color: var(--text-faint); font-size: 11px; flex-shrink: 0
   font-family: var(--font-mono);
 }
 
+/* ═══════════════════════════════════════
+   RESPONSE MODE TOGGLE
+═══════════════════════════════════════ */
+.response-panel .panel-title { margin-bottom: 14px; }
+
+.response-mode-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border-radius: var(--r-lg);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+
+.response-mode-row.is-enforce {
+  border-color: var(--sev-crit-bd);
+  background: var(--sev-crit-bg);
+}
+
+.response-mode-copy b {
+  display: block; color: var(--text-main); font-size: 13px;
+}
+
+.response-mode-copy p {
+  margin: 4px 0 0; color: var(--text-dim); font-size: 11.5px; line-height: 1.5;
+  max-width: 420px;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 46px; height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.toggle-switch.is-on {
+  background: var(--sev-critical);
+  border-color: var(--sev-critical);
+}
+
+.toggle-switch:disabled { opacity: 0.5; cursor: default; }
+
+.toggle-switch .knob {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--text-main);
+  transition: transform 0.15s;
+}
+
+.toggle-switch.is-on .knob { transform: translateX(20px); }
+
+.response-mode-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  font-size: 10px; font-weight: 700; font-family: var(--font-mono);
+  letter-spacing: 0.06em; text-transform: uppercase;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.response-mode-badge.is-enforce {
+  color: var(--sev-critical);
+  border-color: var(--sev-crit-bd);
+  background: var(--sev-crit-bg);
+}
+
 .info-grid {
   display: grid; grid-template-columns: repeat(3, minmax(0,1fr));
   gap: 8px; margin-top: 14px;
@@ -1318,6 +1391,8 @@ let huntSuggested = [];
 let demoAccounts = [];
 let correlationStats = null;
 let systemHealth = null;
+let responseMode = null;        // { mode: "notify"|"enforce", valid_modes: [...] } | { error }
+let responseModeSaving = false; // disables the toggle while a save is in-flight
 
 const app = document.getElementById("app");
 
@@ -1329,6 +1404,22 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+// Mirrors response/engine.py's ACTION_BY_ATTACK_TYPE — used only to show
+// the analyst what action the "Take protective action" button will take
+// before they click it. The backend is the source of truth; this is UI copy.
+const RESPONSE_ACTION_BY_ATTACK_TYPE = {
+  "Intrusion":     "Block",
+  "SQL Injection": "Block",
+  "XSS":           "Block",
+  "DDoS":          "Block",
+  "Phishing":      "Quarantine",
+  "Malware":       "Quarantine",
+  "Ransomware":    "Quarantine",
+};
+function ACTION_BY_ATTACK_TYPE_HINT(attackType) {
+  return RESPONSE_ACTION_BY_ATTACK_TYPE[attackType] || "Quarantine";
 }
 
 function severityClass(severity) {
@@ -1644,6 +1735,8 @@ function resetWorkspaceState() {
   huntResults = null;
   correlationStats = null;
   systemHealth = null;
+  responseMode = null;
+  responseModeSaving = false;
 }
 
 
@@ -1716,6 +1809,44 @@ async function loadCorrelationStats() {
 
 async function loadSystemHealth() {
   try { systemHealth = await api("/api/system-health"); } catch (err) { systemHealth = { error: err.message, status: err.status }; }
+  render();
+}
+
+async function loadResponseMode() {
+  try { responseMode = await api("/api/settings/response-mode"); } catch (err) { responseMode = { error: err.message, status: err.status }; }
+  render();
+}
+
+async function saveResponseMode(newMode) {
+  responseModeSaving = true;
+  render();
+  try {
+    const updated = await api("/api/settings/response-mode", {
+      method: "POST",
+      body: JSON.stringify({ mode: newMode }),
+    });
+    responseMode = { ...responseMode, mode: updated.mode };
+    notice = newMode === "enforce"
+      ? "Enforce mode enabled — Critical/High incidents will be auto-contained."
+      : "Enforce mode disabled — back to notify-only.";
+    systemHealth = null; // module status line shows the mode; refresh it
+  } catch (err) {
+    showError(err.message || "Could not update response mode.");
+  }
+  responseModeSaving = false;
+  render();
+}
+
+async function respondToIncident(incidentId) {
+  try {
+    const updated = await api(`/api/incidents/${encodeURIComponent(incidentId)}/respond`, {
+      method: "POST",
+    });
+    incidents = incidents.map((i) => (i.incident_id === incidentId ? updated : i));
+    notice = `${incidentId} contained (${updated.action_taken}).`;
+  } catch (err) {
+    showError(err.message || "Could not execute response action.");
+  }
   render();
 }
 
@@ -2374,9 +2505,16 @@ function triageView() {
               <div style="display:flex; justify-content:space-between;"><b style="color:var(--text-main);font-size:13px;">Next move</b><span style="color:var(--text-dim);font-size:13px;">${selected.risk_score >= 60 ? "Investigate and contain" : "Monitor"}</span></div>
             </div>
             ${canChange ? `
-              <div style="margin-top:14px; display:flex; gap:8px;">
+              <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
                 <button class="primary-btn" data-quick-status="${escapeHtml(selected.incident_id)}|Contained">Mark contained</button>
                 <button class="ghost-btn" data-quick-status="${escapeHtml(selected.incident_id)}|Resolved">Mark resolved</button>
+              </div>
+            ` : ""}
+            ${(!!permissions.manage_response_mode && selected.status !== "Contained" && selected.status !== "Resolved") ? `
+              <div style="margin-top:8px;">
+                <button class="ghost-btn" style="width:100%; border-color:var(--sev-crit-bd); color:var(--sev-critical);" data-respond-incident="${escapeHtml(selected.incident_id)}">
+                  ⛔ Take protective action now (${escapeHtml(ACTION_BY_ATTACK_TYPE_HINT(selected.attack_type))})
+                </button>
               </div>
             ` : ""}
           ` : `<p class="empty-state">No incident selected.</p>`}
@@ -2646,10 +2784,51 @@ function systemHealthView() {
     return `<div class="notice error">Could not load system health: ${escapeHtml(systemHealth.error)}${systemHealth.status === 403 ? " (manager role required)" : ""}</div>`;
   }
   return `
+    ${responsePanel()}
     <section class="module-grid two-column">
       ${sourcesPanel()}
       ${backendPanel()}
     </section>
+  `;
+}
+
+function responsePanel() {
+  if (!responseMode) {
+    loadResponseMode();
+    return `<div class="panel response-panel"><div class="loading-state">Loading response mode…</div></div>`;
+  }
+  if (responseMode.error) {
+    return `<div class="panel response-panel"><div class="notice error">Could not load response mode: ${escapeHtml(responseMode.error)}</div></div>`;
+  }
+
+  const isEnforce = responseMode.mode === "enforce";
+  const canManage = !!permissions.manage_response_mode;
+
+  return `
+    <div class="panel response-panel">
+      <div class="panel-title">
+        <div><h3>Response mode</h3><p>Notify only, or auto-contain Critical/High incidents on detection</p></div>
+        <span class="response-mode-badge ${isEnforce ? "is-enforce" : ""}">${isEnforce ? "Enforce" : "Notify"}</span>
+      </div>
+      <div class="response-mode-row ${isEnforce ? "is-enforce" : ""}">
+        <div class="response-mode-copy">
+          <b>${isEnforce ? "Auto-containment is ON" : "Auto-containment is OFF"}</b>
+          <p>
+            ${isEnforce
+              ? "New Critical and High severity incidents are automatically blocked or quarantined the moment they're detected, and marked Contained. Every automatic action is logged to the Audit Trail."
+              : "The system only surfaces incidents — analysts decide when to change status or respond. No incident is touched automatically."}
+          </p>
+        </div>
+        ${canManage ? `
+          <button
+            class="toggle-switch ${isEnforce ? "is-on" : ""}"
+            data-response-toggle
+            ${responseModeSaving ? "disabled" : ""}
+            role="switch" aria-checked="${isEnforce}" aria-label="Toggle enforce mode"
+          ><span class="knob"></span></button>
+        ` : `<span class="response-mode-badge">Manager only</span>`}
+      </div>
+    </div>
   `;
 }
 
@@ -2907,6 +3086,26 @@ function bindEvents() {
 
   document.querySelectorAll("[data-hunt-chip]").forEach((chip) => {
     chip.addEventListener("click", () => runHunt(chip.dataset.huntChip));
+  });
+
+  const responseToggle = document.querySelector("[data-response-toggle]");
+  if (responseToggle) {
+    responseToggle.addEventListener("click", () => {
+      const turningOn = !responseToggle.classList.contains("is-on");
+      if (turningOn && !confirm(
+        "Turn on enforce mode?\n\nNew Critical and High severity incidents will be automatically " +
+        "blocked/quarantined the moment they're detected, without an analyst reviewing them first."
+      )) {
+        return;
+      }
+      saveResponseMode(turningOn ? "enforce" : "notify");
+    });
+  }
+
+  document.querySelectorAll("[data-respond-incident]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      respondToIncident(btn.dataset.respondIncident);
+    });
   });
 
   const graphToggle = document.querySelector("[data-graph-toggle]");
