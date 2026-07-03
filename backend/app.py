@@ -22,7 +22,7 @@ from flask import Flask, jsonify, redirect, request, send_from_directory, sessio
 from ingestion.loader import get_events
 from correlation.engine import (
     get_incidents, get_user_threads, update_incident_status, VALID_STATUSES,
-    correlation_stats,
+    correlation_stats, escalate_incident,
 )
 from mitre.enrichment import enrich_incidents, enrich_incident, mitre_heatmap
 from mitre.mapping import ATTACK_TYPE_TO_MITRE
@@ -32,9 +32,10 @@ from graph.twin import get_graph, graph_to_cytoscape
 from api.live_feed import get_feed_page
 from search.engine import search_incidents, SUGGESTED_HUNTS
 
-from auth.users import authenticate, get_user, list_demo_accounts, register
+from auth.users import authenticate, get_user, list_demo_accounts, register, get_user_on_call, ESCALATION_TARGET_ROLE
 from auth.permissions import permissions_for, can
 from auth.audit import record as record_audit, get_log as get_audit_log
+from notifications.engine import push as push_notification, pull as pull_notifications
 
 from response.engine import (
     get_mode as get_response_mode,
@@ -365,6 +366,83 @@ def api_incident_statuses():
     return jsonify(VALID_STATUSES)
 
 
+@app.route("/api/incidents/<incident_id>/escalate", methods=["POST"])
+@role_required("escalate_incident")
+def api_incident_escalate(incident_id: str):
+    """
+    Hands an incident to the next tier up: Analyst -> Responder -> Manager
+    (see ESCALATION_TARGET_ROLE in auth/users.py). Gated on
+    escalate_incident, which Manager doesn't have — see
+    auth/permissions.py for why. A reason is required: this is a handoff
+    record, not a status flip, so the audit trail needs to say *why*
+    someone else now owns it.
+    """
+    user   = current_user()
+    body   = request.get_json(silent=True) or {}
+    reason = (body.get("reason") or "").strip()
+
+    if not reason:
+        return jsonify({"error": "A reason is required to escalate an incident."}), 400
+
+    incidents = get_incidents()
+    existing = next((i for i in incidents if i.incident_id == incident_id), None)
+    if not existing:
+        return jsonify({"error": "not found"}), 404
+
+    # correlation.engine.escalate_incident() is deliberately idempotent at
+    # the data layer (re-escalating just overwrites reason/timestamp) —
+    # but the API itself should refuse a second escalation and tell the
+    # caller who already owns it, rather than silently reassigning.
+    if existing.escalated:
+        return jsonify({
+            "error":    "already_escalated",
+            "message":  f"This incident was already escalated to {existing.escalated_to}.",
+            "incident": enrich_incident(existing),
+        }), 409
+
+    target_role = ESCALATION_TARGET_ROLE.get(user.role)
+    target_user = get_user_on_call(target_role) if target_role else None
+    escalated_to = target_user.to_public_dict()["display_name"] if target_user else "Unassigned"
+
+    updated = escalate_incident(
+        incident_id,
+        escalated_to=escalated_to,
+        reason=reason,
+        escalated_by=user.username,
+    )
+    if not updated:
+        return jsonify({"error": "not found"}), 404
+
+    record_audit(user.username, user.to_public_dict()["role_label"],
+                 "Escalated incident", target=incident_id,
+                 detail=f"to {escalated_to} — {reason}")
+
+    if target_role:
+        push_notification(
+            target_role,
+            title="Incident needs your attention now",
+            message=f"{incident_id} was escalated to you by {user.to_public_dict()['role_label']} — \"{reason}\"",
+            incident_id=incident_id,
+        )
+
+    return jsonify(enrich_incident(updated))
+
+
+# ---------------------------------------------------------------------------
+# Escalation notifications — polled by the frontend
+# ---------------------------------------------------------------------------
+@app.route("/api/notifications")
+@login_required
+def api_notifications():
+    """
+    Consume-once pull of pending notifications for the signed-in user's
+    role. The frontend polls this on an interval; anything returned here
+    is cleared from the queue, so it won't be re-shown on the next poll.
+    """
+    user = current_user()
+    return jsonify(pull_notifications(user.role))
+
+
 # ---------------------------------------------------------------------------
 # NEW v4: correlation transparency — why N events became M incidents
 # ---------------------------------------------------------------------------
@@ -452,6 +530,8 @@ def api_system_health():
         "api_endpoints": [
             "GET /api/summary", "GET /api/incidents", "GET /api/incidents/<id>",
             "POST /api/incidents/<id>/status", "POST /api/incidents/<id>/respond",
+            "POST /api/incidents/<id>/escalate",
+            "GET /api/notifications",
             "GET /api/mitre/heatmap", "GET /api/trust-scores", "GET /api/metrics",
             "GET /api/graph", "GET /api/live-feed", "GET /api/search",
             "GET /api/audit", "GET /api/correlation-stats",
