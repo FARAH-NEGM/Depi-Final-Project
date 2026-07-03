@@ -226,6 +226,18 @@ class Incident:
     # the underlying activity is still recent.
     last_seen:         str        = ""
 
+    # --- escalation (v5) ---
+    # A handoff, not a status. An incident can be escalated while still
+    # "Open" or "Investigating" — escalated is orthogonal to `status`,
+    # not a replacement value for it. Set by escalate_incident() below via
+    # POST /api/incidents/<id>/escalate, analyst-only (see
+    # auth/permissions.py — escalate_incident capability).
+    escalated:         bool       = False
+    escalated_to:      str        = ""
+    escalated_by:      str        = ""
+    escalation_reason: str        = ""
+    escalated_at:      str        = ""
+
     def to_dict(self) -> dict:
         return asdict(self)
 
@@ -774,6 +786,38 @@ def update_incident_status(incident_id: str, new_status: str) -> Incident | None
                 inc.assigned_analyst = _assign_analyst(inc.incident_id, new_status)
             sla = _compute_sla(inc.severity, inc.mttd_minutes, inc.mttr_minutes, new_status)
             inc.containment_sla_breached = sla["containment_sla_breached"]
+            return inc
+    return None
+
+
+def escalate_incident(
+    incident_id: str,
+    escalated_to: str,
+    reason: str,
+    escalated_by: str,
+) -> Incident | None:
+    """
+    Records a Tier-1 → Tier-2 handoff on the incident in place. Mirrors
+    update_incident_status()'s in-memory mutation approach.
+
+    Deliberately does NOT change `status` — escalation is a parallel
+    "who owns this now" signal, not a workflow stage. An escalated
+    incident can still move Open -> Investigating -> Contained normally;
+    the escalation flag and status are independent.
+
+    Idempotent-ish: re-escalating an already-escalated incident just
+    overwrites the reason/timestamp (e.g. new information came in) rather
+    than erroring — there's no product requirement yet for tracking
+    escalation history, only current escalation state.
+    """
+    incidents = get_incidents()
+    for inc in incidents:
+        if inc.incident_id == incident_id:
+            inc.escalated         = True
+            inc.escalated_to      = escalated_to
+            inc.escalated_by      = escalated_by
+            inc.escalation_reason = reason
+            inc.escalated_at      = datetime.utcnow().isoformat()
             return inc
     return None
 
