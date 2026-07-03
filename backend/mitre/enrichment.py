@@ -12,14 +12,66 @@ v2 changes:
 
 from __future__ import annotations
 
-from correlation.engine import Incident, get_incidents
+from correlation.engine import Incident, get_incidents, SEVERITY_RISK, TACTIC_CRITICALITY
 from ingestion.loader import get_events
+import math
 from mitre.mapping import map_attack_dynamic, build_mitre_tactic_chain
 
 
 # Build a quick event lookup so we can pull protocol/signature per incident
 def _get_event_lookup() -> dict[str, object]:
     return {e.event_id: e for e in get_events()}
+
+
+def explain_risk(incident: Incident) -> dict:
+    """
+    Explain the risk score using the same weighted model as the correlation
+    engine. This makes the score auditable instead of a black-box number.
+    """
+    severity_score = SEVERITY_RISK.get(incident.severity, 40)
+    count_score = min(100.0, 100 * math.log1p(incident.event_count) / math.log1p(20))
+    chain_score = min(100.0, (incident.chain_confidence or 0.0) * 100)
+    tactic_score = (
+        sum(TACTIC_CRITICALITY.get(t, 0.5) for t in incident.mitre_chain) / len(incident.mitre_chain) * 100
+        if incident.mitre_chain else 40.0
+    )
+
+    factors = [
+        {
+            "label": "Severity impact",
+            "weight": "40%",
+            "input": incident.severity,
+            "component_score": round(severity_score, 2),
+            "weighted_points": round(0.40 * severity_score, 2),
+        },
+        {
+            "label": "Related event volume",
+            "weight": "20%",
+            "input": f"{incident.event_count} event(s)",
+            "component_score": round(count_score, 2),
+            "weighted_points": round(0.20 * count_score, 2),
+        },
+        {
+            "label": "Attack chain confidence",
+            "weight": "20%",
+            "input": f"{round((incident.chain_confidence or 0.0) * 100)}%",
+            "component_score": round(chain_score, 2),
+            "weighted_points": round(0.20 * chain_score, 2),
+        },
+        {
+            "label": "MITRE tactic criticality",
+            "weight": "20%",
+            "input": " → ".join(incident.mitre_chain) if incident.mitre_chain else "No tactic chain",
+            "component_score": round(tactic_score, 2),
+            "weighted_points": round(0.20 * tactic_score, 2),
+        },
+    ]
+    return {
+        "formula": "40% severity + 20% event volume + 20% attack-chain confidence + 20% MITRE tactic criticality",
+        "score": incident.risk_score,
+        "level": incident.risk_level,
+        "factors": factors,
+    }
 
 
 def enrich_incident(incident: Incident, event_lookup: dict | None = None) -> dict:
@@ -49,6 +101,7 @@ def enrich_incident(incident: Incident, event_lookup: dict | None = None) -> dic
         for t in techniques
     ]
     d["tactic_chain"] = tactic_chain
+    d["risk_explanation"] = explain_risk(incident)
 
     # mitre_chain on the incident itself (from correlation engine) takes
     # precedence if non-empty; otherwise fall back to tactic_chain
