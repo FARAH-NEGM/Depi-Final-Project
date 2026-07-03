@@ -567,6 +567,65 @@ nav button .nav-lock { color: var(--text-faint); font-size: 11px; flex-shrink: 0
 }
 
 /* ═══════════════════════════════════════
+   TOAST / ESCALATION POP-UPS
+═══════════════════════════════════════ */
+.toast-stack {
+  position: fixed;
+  top: 18px; right: 18px;
+  z-index: 999;
+  display: flex; flex-direction: column;
+  gap: 10px;
+  width: min(340px, calc(100vw - 36px));
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  background: var(--bg-raised);
+  border: 1px solid var(--sev-high-bd);
+  border-left: 3px solid var(--sev-high);
+  border-radius: var(--r-lg);
+  padding: 11px 13px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+  animation: toast-in 0.18s ease-out;
+  display: flex; gap: 10px; align-items: flex-start;
+}
+
+.toast.toast-info { border-left-color: var(--cyan); border-color: var(--border-cyan); }
+
+.toast-icon { font-size: 15px; line-height: 1; margin-top: 1px; flex-shrink: 0; }
+
+.toast-body { flex: 1; min-width: 0; }
+
+.toast-title {
+  font-size: 12px; font-weight: 700;
+  color: var(--text-main);
+  margin: 0 0 2px;
+}
+
+.toast-msg {
+  font-size: 11px; font-family: var(--font-mono);
+  color: var(--text-dim);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.toast-close {
+  background: transparent; border: 0;
+  color: var(--text-faint);
+  cursor: pointer; font-size: 13px;
+  padding: 0; line-height: 1;
+  flex-shrink: 0;
+}
+
+.toast-close:hover { color: var(--text-main); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════
    STATS GRID
 ═══════════════════════════════════════ */
 .stats-grid {
@@ -1197,6 +1256,81 @@ nav button .nav-lock { color: var(--text-faint); font-size: 11px; flex-shrink: 0
 .heatmap-bar { height: 5px; border-radius: var(--r-pill); background: var(--bg-base); overflow: hidden; margin-top: 4px; }
 .heatmap-bar i { display: block; height: 100%; background: var(--cyan); }
 
+/* ATT&CK matrix (tactic columns x technique cells, shaded by count) */
+.attck-matrix {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.attck-col {
+  min-width: 168px;
+  flex: 0 0 168px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.attck-col-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0 2px 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+
+.attck-col-title {
+  color: var(--text-main);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+}
+
+.attck-col-total {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.attck-cell {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 7px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attck-cell code {
+  color: var(--text-main);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.attck-cell span {
+  color: var(--text-main);
+  font-size: 11px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.attck-cell b {
+  color: var(--text-main);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  align-self: flex-end;
+}
+
 /* ═══════════════════════════════════════
    TRUST SCORE LEADERBOARD
 ═══════════════════════════════════════ */
@@ -1438,6 +1572,7 @@ let query = "";
 let severityFilter = "All";
 let statusFilter = "All";
 let notice = "";
+let toasts = [];   // { id, tone, title, msg } — floating pop-up notifications (escalations etc.)
 
 let summary = null;
 let graphData = null;
@@ -1615,6 +1750,7 @@ function renderLogin() {
               <label for="regRole">Role <span style="color:var(--sev-critical)">*</span></label>
               <select id="regRole" style="width:100%;border:1px solid var(--border);color:var(--text-main);background:var(--bg-raised);border-radius:var(--r);outline:none;padding:11px 12px;font-size:14px;">
                 <option value="analyst">Security Analyst</option>
+                <option value="responder">Incident Responder</option>
                 <option value="manager">SOC Manager</option>
               </select>
             </div>
@@ -1723,6 +1859,7 @@ async function submitLogin(username, password) {
     authError      = "";
     authSuccess    = "";
     resetWorkspaceState();
+    startNotificationPolling();
     render();
   } catch (err) {
     authSubmitting = false;
@@ -1756,6 +1893,7 @@ async function submitRegister(username, displayName, role, password) {
     authError      = "";
     authSuccess    = "";
     resetWorkspaceState();
+    startNotificationPolling();
     render();
   } catch (err) {
     authSubmitting = false;
@@ -1772,6 +1910,7 @@ async function handleLogout() {
   authError   = "";
   authSuccess = "";
   resetWorkspaceState();
+  stopNotificationPolling();
   render();
 }
 
@@ -1812,6 +1951,7 @@ async function bootstrap() {
     if (me.user) {
       currentUser = me.user;
       permissions = me.permissions || {};
+      startNotificationPolling();
     }
   } catch (e) { /* not logged in */ }
 
@@ -1927,6 +2067,41 @@ async function runHunt(q) {
   render();
 }
 
+async function escalateIncident(incidentId, reason) {
+  // Guard against double-escalation using what we already know locally —
+  // covers the case where two clicks land before the first response/render
+  // completes, or the local copy is stale relative to another session.
+  const local = incidents.find((i) => i.incident_id === incidentId);
+  if (local && local.escalated) {
+    pushToast("Already escalated", `${incidentId} was already escalated to ${local.escalated_to}.`, "info");
+    return;
+  }
+
+  try {
+    const updated = await api(`/api/incidents/${encodeURIComponent(incidentId)}/escalate`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
+    incidents = incidents.map((i) => (i.incident_id === incidentId ? updated : i));
+    notice = `${incidentId} escalated to ${updated.escalated_to}.`;
+    // The server enqueues the "you've been escalated something" alert for
+    // the target role itself (see POST /api/incidents/<id>/escalate) —
+    // nothing to do here on the client beyond the local state update.
+  } catch (err) {
+    // Backend already knows about it (409 or similar "already escalated"
+    // response) — treat as informational rather than a hard error.
+    if (err.status === 409 || /already escalated/i.test(err.message || "")) {
+      pushToast("Already escalated", err.message || `${incidentId} was already escalated.`, "info");
+      if (err.body && err.body.incident) {
+        incidents = incidents.map((i) => (i.incident_id === incidentId ? err.body.incident : i));
+      }
+    } else {
+      showError(err.message || "Could not escalate incident.");
+    }
+  }
+  render();
+}
+
 async function changeIncidentStatus(incidentId, newStatus) {
   try {
     const updated = await api(`/api/incidents/${encodeURIComponent(incidentId)}/status`, {
@@ -1949,6 +2124,92 @@ function showError(msg) {
   setTimeout(() => { transientError = ""; render(); }, 4000);
 }
 
+// Mirrors ESCALATION_TARGET_ROLE in auth/users.py — display-only label
+// for the Escalate button. The backend independently resolves the real
+// target user server-side; this just tells the analyst/responder who
+// they're about to hand the incident to before they click.
+const ESCALATION_TARGET_LABEL = {
+  analyst:   "Incident Responder",
+  responder: "SOC Manager",
+};
+
+// The actual role key (not just the label) each role escalates to —
+// used to address the "you've been escalated to" pop-up at the right
+// audience. Mirrors the same ESCALATION_TARGET_ROLE map on the backend.
+const ESCALATION_TARGET_ROLE = {
+  analyst:   "responder",
+  responder: "manager",
+};
+
+/* ── Toast pop-ups (escalation alerts, etc.) ──
+   Small floating notifications rendered on top of the app shell —
+   distinct from the inline `.notice` banner, which is for the acting
+   user's own action confirmations (e.g. "X escalated to Y"). Toasts are
+   for alerts that can also arrive passively, from someone else's action. */
+let _toastSeq = 0;
+function pushToast(title, msg, tone = "alert", ttl = 7000) {
+  const id = ++_toastSeq;
+  toasts = [...toasts, { id, title, msg, tone }];
+  render();
+  setTimeout(() => dismissToast(id), ttl);
+}
+
+function dismissToast(id) {
+  const before = toasts.length;
+  toasts = toasts.filter((t) => t.id !== id);
+  if (toasts.length !== before) render();
+}
+
+function renderToastStack() {
+  if (!toasts.length) return "";
+  return `
+    <div class="toast-stack">
+      ${toasts.map((t) => `
+        <div class="toast ${t.tone === "info" ? "toast-info" : ""}" data-toast-id="${t.id}">
+          <span class="toast-icon">${t.tone === "info" ? "ℹ️" : "🚨"}</span>
+          <div class="toast-body">
+            <p class="toast-title">${escapeHtml(t.title)}</p>
+            <p class="toast-msg">${escapeHtml(t.msg)}</p>
+          </div>
+          <button class="toast-close" data-dismiss-toast="${t.id}" aria-label="Dismiss">✕</button>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+/* ── Cross-session escalation alerts ──
+   Routed through the server (GET /api/notifications), not the browser.
+   This backend's login session is one cookie for the whole browser, so
+   two different roles can never be signed in in two tabs of the same
+   browser at once — a client-only channel (BroadcastChannel/localStorage)
+   would never actually have anyone on the other end to notify. Polling
+   the server instead works no matter which browser/session is signed in
+   as the target role, and survives page reloads/multiple devices. */
+const NOTIFICATION_POLL_MS = 6000;
+let _notificationPollTimer = null;
+
+async function pollNotifications() {
+  if (!currentUser) return;
+  try {
+    const pending = await api("/api/notifications");
+    (pending || []).forEach((n) => {
+      pushToast(n.title || "Attention needed", n.message || "", "alert");
+    });
+  } catch (e) { /* not logged in / transient — try again next tick */ }
+}
+
+function startNotificationPolling() {
+  stopNotificationPolling();
+  pollNotifications(); // pick up anything that queued before this tab was open
+  _notificationPollTimer = setInterval(pollNotifications, NOTIFICATION_POLL_MS);
+}
+
+function stopNotificationPolling() {
+  if (_notificationPollTimer) clearInterval(_notificationPollTimer);
+  _notificationPollTimer = null;
+}
+
 /* ── Navigation ── */
 const navItems = [
   { key: "command",     label: "Command Center",   cap: null },
@@ -1963,8 +2224,8 @@ const navItems = [
 ];
 
 const pageMeta = {
-  command:  { title: "Cyber Control Tower",    subtitle: "SOC dashboard for correlation, triage, prioritization, and response." },
-  triage:   { title: "Incident Triage",        subtitle: "Review correlated incidents, change workflow status, and inspect each attack story." },
+  command:  { title: "Cyber Control Tower",    subtitle: "Read-only overview: correlation pipeline health, SLA status, and the riskiest open incidents. Open Incident Triage to investigate or act." },
+  triage:   { title: "Incident Triage",        subtitle: "Select an incident to inspect its attack story, MITRE mapping, and take action — status changes and response happen here." },
   mitre:    { title: "MITRE ATT&CK Heatmap",   subtitle: "Technique frequency across all correlated incidents, mapped to the ATT&CK framework." },
   twin:     { title: "Cyber Digital Twin",     subtitle: "Graph view of users, hosts, and network segments derived from the live event stream." },
   hunting:  { title: "Threat Hunting",         subtitle: "Run structured queries against the correlated incident set." },
@@ -2073,6 +2334,7 @@ function render() {
   const focusedSelectionStart = searchWasFocused ? document.activeElement.selectionStart : null;
 
   app.innerHTML = `
+    ${renderToastStack()}
     <div class="cct-app">
       <button class="sidebar-menu-btn" data-sidebar-toggle aria-label="Open navigation" aria-expanded="${sidebarOpen}">
         <span></span><span></span><span></span>
@@ -2154,6 +2416,7 @@ function incidentItem(incident, active) {
             <span class="${statusClass(incident.status)}">${escapeHtml(incident.status)}</span>
             <span style="color:var(--text-dim);font-family:var(--font-mono);font-size:11px;">${escapeHtml(incident.incident_id)}</span>
             ${slaBreach ? `<span class="badge badge-critical">SLA</span>` : ""}
+            ${incident.escalated ? `<span class="badge badge-critical">ESC</span>` : ""}
           </div>
           <h4>${escapeHtml(incident.attack_type)} — ${escapeHtml(incident.hostname || incident.user)}</h4>
           <p style="color:var(--text-dim);font-size:11px;margin:2px 0 0;">${escapeHtml(incident.device_name || "")} · ${escapeHtml(incident.user)} · ${escapeHtml(incident.assigned_analyst)}</p>
@@ -2202,7 +2465,6 @@ function detailCard(incident) {
   if (!incident) return `<div class="panel"><p class="empty-state">No incident selected.</p></div>`;
   const canChange = !!permissions.change_incident_status;
   const statuses = ["Open", "Investigating", "Contained", "Resolved"];
-  const techNames = (incident.mitre_techniques || []).slice(0, 4).map((t) => t.technique_id).join(" / ") || "—";
 
   return `
     <div class="panel detail-panel">
@@ -2214,7 +2476,6 @@ function detailCard(incident) {
             <span class="${statusClass(incident.status)}">${escapeHtml(incident.status)}</span>
           </div>
           <h2>${escapeHtml(incident.incident_id)} — ${escapeHtml(incident.attack_type)} affecting ${escapeHtml(incident.user)}</h2>
-          <p class="summary">${escapeHtml(incident.correlation_reason)}</p>
         </div>
         <div class="detail-actions">
           ${canChange ? `
@@ -2225,27 +2486,74 @@ function detailCard(incident) {
           <button class="primary-btn" data-export-incident="${escapeHtml(incident.incident_id)}">Export report</button>
         </div>
       </div>
+      <div class="info-grid" style="grid-template-columns: repeat(4, minmax(0,1fr));">
+        ${infoTile("Action taken", incident.action_taken)}
+        ${infoTile("Last seen", fmtDate(incident.last_seen))}
+        ${infoTile("MTTD", fmtMinutes(incident.mttd_minutes))}
+        ${infoTile("MTTR", mttrDisplay(incident))}
+      </div>
+    </div>
+  `;
+}
+
+function validatePanel(incident) {
+  // Step 1 of real-world triage: is this incident real, and how urgent
+  // is the SLA clock? Confidence + correlation reasoning + SLA status
+  // grouped together because they answer the same question analysts ask
+  // first, before scoping or classifying anything.
+  if (!incident) return "";
+  const conf = incident.correlation_confidence || 0;
+  const confPct = Math.round(conf * 100);
+  const confClass = conf >= 0.7 ? "sev-low" : conf >= 0.4 ? "sev-medium" : "sev-critical";
+  const confWord = conf >= 0.7 ? "High confidence" : conf >= 0.4 ? "Medium confidence" : "Needs validation";
+
+  const slaRows = [
+    ["Detection SLA", incident.detection_sla_minutes, incident.detection_sla_breached],
+    ["Response SLA", incident.response_sla_minutes, incident.response_sla_breached],
+    ["Containment SLA", incident.containment_sla_minutes, incident.containment_sla_breached],
+  ];
+
+  return `
+    <div class="panel">
+      <div class="panel-title">
+        <div><h3>1 · Validate</h3><p>Is this real, and how much SLA time is left?</p></div>
+        <span class="sev ${confClass}">${confWord} · ${confPct}%</span>
+      </div>
+      <p style="color:var(--text-dim);font-size:13px;line-height:1.6;margin:0 0 12px;">${escapeHtml(incident.correlation_reason || "No correlation reasoning available.")}</p>
       <div class="info-grid">
+        ${slaRows.map(([label, mins, breached]) => `
+          <div class="info-tile" style="${breached ? "border-color:var(--sev-crit-bd);background:var(--sev-crit-bg);" : ""}">
+            <span>${escapeHtml(label)}</span>
+            <strong>${escapeHtml(String(mins))}m target${breached ? " · BREACHED" : ""}</strong>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function scopePanel(incident) {
+  // Step 2: who/what is affected. Pulled out of the old flat 19-tile
+  // grid so it reads as its own question instead of being mixed in
+  // with validation and classification facts.
+  if (!incident) return "";
+  return `
+    <div class="panel">
+      <div class="panel-title">
+        <div><h3>2 · Scope</h3><p>Who and what is affected</p></div>
+        <span class="panel-icon">◎</span>
+      </div>
+      <div class="info-grid">
+        ${infoTile("Identity", incident.user)}
         ${infoTile("Hostname", incident.hostname)}
         ${infoTile("Device", incident.device_name)}
+        ${infoTile("OS", incident.os_name)}
         ${infoTile("Asset ID", incident.asset_id)}
         ${infoTile("Business unit", incident.business_unit)}
-        ${infoTile("OS", incident.os_name)}
         ${infoTile("Network segment", incident.network_segment)}
         ${infoTile("Source IP", incident.source_ip)}
         ${infoTile("Destination IP", incident.dst_ip)}
-        ${infoTile("Identity", incident.user)}
         ${infoTile("Assigned analyst", incident.assigned_analyst)}
-        ${infoTile("Action taken", incident.action_taken)}
-        ${infoTile("MITRE techniques", techNames)}
-        ${infoTile("Event count", String(incident.event_count))}
-        ${infoTile("MTTD", fmtMinutes(incident.mttd_minutes))}
-        ${infoTile("MTTR", mttrDisplay(incident))}
-        ${infoTile("Last seen", fmtDate(incident.last_seen))}
-        ${infoTile("Correlation confidence", `${Math.round((incident.correlation_confidence || 0) * 100)}%`)}
-        ${infoTile("Detection SLA", `${incident.detection_sla_minutes}m target${incident.detection_sla_breached ? " · BREACHED" : ""}`)}
-        ${infoTile("Response SLA", `${incident.response_sla_minutes}m target${incident.response_sla_breached ? " · BREACHED" : ""}`)}
-        ${infoTile("Containment SLA", `${incident.containment_sla_minutes}m target${incident.containment_sla_breached ? " · BREACHED" : ""}`)}
       </div>
     </div>
   `;
@@ -2280,14 +2588,30 @@ function timelinePanel(incident) {
   `;
 }
 
+function furthestTacticStage(incident) {
+  // How far along the kill chain the attacker got, per ATTCK_TACTIC_ORDER.
+  // Used to weight urgency beyond raw risk_score — e.g. a Critical still
+  // at Reconnaissance is not the same urgency as a Critical that's
+  // reached Lateral Movement or Exfiltration.
+  const chain = (incident && incident.tactic_chain) || [];
+  let idx = -1, tactic = null;
+  chain.forEach((t) => {
+    const i = ATTCK_TACTIC_ORDER.indexOf(t);
+    if (i > idx) { idx = i; tactic = t; }
+  });
+  return { idx, tactic };
+}
+
 function mitreChainPanel(incident) {
   if (!incident) return "";
   const techs = incident.mitre_techniques || [];
+  const stage = furthestTacticStage(incident);
+  const lateStage = stage.idx >= ATTCK_TACTIC_ORDER.indexOf("Lateral Movement");
   return `
     <div class="panel">
       <div class="panel-title">
-        <div><h3>MITRE ATT&CK mapping</h3><p>Tactic chain: ${escapeHtml((incident.tactic_chain || []).join(" → ") || "—")}</p></div>
-        <span class="panel-icon">⛨</span>
+        <div><h3>3 · Classify</h3><p>Tactic chain: ${escapeHtml((incident.tactic_chain || []).join(" → ") || "—")} · ${escapeHtml(String(incident.event_count))} event(s)</p></div>
+        ${stage.tactic ? `<span class="sev ${lateStage ? "sev-critical" : "sev-medium"}">Reached: ${escapeHtml(stage.tactic)}</span>` : `<span class="panel-icon">⛨</span>`}
       </div>
       <div class="heatmap-list">
         ${techs.length ? techs.map((t) => `
@@ -2517,6 +2841,14 @@ function miniCharts() {
 
 /* ── Views ── */
 function commandCenterView() {
+  // Command Center is now the investigative overview: pick any incident
+  // from the queue and see its full context in one place — detail,
+  // risk, MITRE classification, timeline, plus the aggregate correlation
+  // and SLA picture. It's read/explore, not act — no status changes, no
+  // escalation, no protective-action button. Those stay Incident
+  // Triage-only, so the two pages don't duplicate the same decision
+  // controls; they duplicate the same *reference* panels on purpose
+  // (this is the shared "what am I looking at" context, one place).
   const filtered = getFilteredIncidents();
   const selected = getSelectedIncident();
   return `
@@ -2542,10 +2874,43 @@ function commandCenterView() {
   `;
 }
 
+function computeNextMove(incident) {
+  // Step 4: decide. Real triage doesn't decide off risk_score alone —
+  // confidence gates everything (don't act on something unvalidated),
+  // and how far the attacker got along the kill chain raises urgency
+  // independent of the nominal severity label.
+  const conf = incident.correlation_confidence || 0;
+  const stage = furthestTacticStage(incident);
+  const lateStage = stage.idx >= ATTCK_TACTIC_ORDER.indexOf("Lateral Movement");
+
+  if (conf < 0.4) {
+    return { text: "Validate further — low correlation confidence", tone: "sev-medium" };
+  }
+  if (incident.risk_score >= 60 && lateStage) {
+    return { text: `Contain immediately — attacker reached ${stage.tactic}`, tone: "sev-critical" };
+  }
+  if (incident.risk_score >= 60) {
+    return { text: "Investigate and contain", tone: "sev-high" };
+  }
+  return { text: "Monitor", tone: "sev-low" };
+}
+
 function triageView() {
+  // Incident Triage is the decision workspace, not a second overview.
+  // Detail card, MITRE classify, timeline, and risk gauge all now live
+  // on Command Center — showing them here too would just be the same
+  // reference panels duplicated across two pages. What's left is the
+  // stuff that's actually specific to making a triage decision: the
+  // Validate/Scope explanation steps, and Decide & act (status changes,
+  // escalation, protective action). The "attacker reached X" context
+  // that used to come from the Classify panel is still surfaced inline
+  // in the Next move line below, so the reasoning isn't lost — just the
+  // duplicate panel.
   const filtered = getFilteredIncidents();
   const selected = getSelectedIncident();
   const canChange = !!permissions.change_incident_status;
+  const nextMove = selected ? computeNextMove(selected) : null;
+  const lowConfidence = selected ? (selected.correlation_confidence || 0) < 0.4 : false;
   return `
     ${renderStats()}
     <section class="module-layout">
@@ -2553,14 +2918,13 @@ function triageView() {
         ${incidentQueuePanel(filtered, selected)}
       </div>
       <div class="center-column">
-        ${detailCard(selected)}
-        ${timelinePanel(selected)}
+        ${validatePanel(selected)}
+        ${scopePanel(selected)}
       </div>
       <div class="right-column">
-        ${riskGauge(selected ? selected.risk_score : 0)}
         <div class="panel">
           <div class="panel-title">
-            <div><h3>Triage decision</h3><p>What the analyst should do next</p></div>
+            <div><h3>3 · Decide &amp; act</h3><p>What the analyst should do next</p></div>
             <span class="panel-icon">✓</span>
           </div>
           ${selected ? `
@@ -2568,7 +2932,7 @@ function triageView() {
               <div style="display:flex; justify-content:space-between;"><b style="color:var(--text-main);font-size:13px;">Priority</b><span style="color:var(--text-dim);font-size:13px;">${escapeHtml(riskLabel(selected.risk_score))}</span></div>
               <div style="display:flex; justify-content:space-between;"><b style="color:var(--text-main);font-size:13px;">Current status</b><span class="${statusClass(selected.status)}">${escapeHtml(selected.status)}</span></div>
               <div style="display:flex; justify-content:space-between;"><b style="color:var(--text-main);font-size:13px;">Affected users</b><span style="color:var(--text-dim);font-size:13px;">${escapeHtml((selected.affected_users || []).join(", "))}</span></div>
-              <div style="display:flex; justify-content:space-between;"><b style="color:var(--text-main);font-size:13px;">Next move</b><span style="color:var(--text-dim);font-size:13px;">${selected.risk_score >= 60 ? "Investigate and contain" : "Monitor"}</span></div>
+              <div style="display:flex; justify-content:space-between; align-items:center;"><b style="color:var(--text-main);font-size:13px;">Next move</b><span class="sev ${nextMove.tone}">${escapeHtml(nextMove.text)}</span></div>
             </div>
             ${canChange ? `
               <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
@@ -2576,17 +2940,117 @@ function triageView() {
                 <button class="ghost-btn" data-quick-status="${escapeHtml(selected.incident_id)}|Resolved">Mark resolved</button>
               </div>
             ` : ""}
-            ${(!!permissions.manage_response_mode && selected.status !== "Contained" && selected.status !== "Resolved") ? `
+            ${!!permissions.escalate_incident ? `
               <div style="margin-top:8px;">
-                <button class="ghost-btn" style="width:100%; border-color:var(--sev-crit-bd); color:var(--sev-critical);" data-respond-incident="${escapeHtml(selected.incident_id)}">
-                  ⛔ Take protective action now (${escapeHtml(ACTION_BY_ATTACK_TYPE_HINT(selected.attack_type))})
-                </button>
+                ${selected.escalated ? `
+                  <div style="border:1px solid var(--sev-high-bd); border-radius:8px; padding:8px 10px; font-size:12px; color:var(--sev-high);">
+                    ⬆ Escalated to ${escapeHtml(selected.escalated_to)} — "${escapeHtml(selected.escalation_reason)}"
+                  </div>
+                ` : `
+                  <button class="ghost-btn" style="width:100%;" data-escalate-incident="${escapeHtml(selected.incident_id)}">
+                    ⬆ Escalate to ${escapeHtml(ESCALATION_TARGET_LABEL[currentUser.role] || "next tier")}
+                  </button>
+                  ${nextMove.text.startsWith("Validate further") ? `<p style="color:var(--sev-medium);font-size:11px;margin:6px 0 0;">Next move recommends validating further — escalating hands the confidence gap to someone who can weigh in.</p>` : ""}
+                `}
               </div>
             ` : ""}
+            ${(() => {
+              // Once you've escalated, you've handed off ownership — if your
+              // role has a tier above it (analyst -> responder, responder ->
+              // manager), taking protective action yourself no longer makes
+              // sense and the button disappears for you. Top-tier roles
+              // (nothing left in ESCALATION_TARGET_ROLE, i.e. the manager
+              // an escalation lands on) keep it, since they're the ones who
+              // now own the call.
+              const relinquishedToEscalation = selected.escalated && !!ESCALATION_TARGET_ROLE[currentUser.role];
+              const canTakeAction = !!permissions.manage_response_mode && !relinquishedToEscalation
+                && selected.status !== "Contained" && selected.status !== "Resolved";
+              if (!canTakeAction) return "";
+              return `
+              <div style="margin-top:8px;">
+                <button class="ghost-btn" style="width:100%; border-color:var(--sev-crit-bd); color:var(--sev-critical);"
+                  data-respond-incident="${escapeHtml(selected.incident_id)}"
+                  data-respond-confidence="${selected.correlation_confidence || 0}">
+                  ⛔ Take protective action now (${escapeHtml(ACTION_BY_ATTACK_TYPE_HINT(selected.attack_type))})
+                </button>
+                ${lowConfidence ? `<p style="color:var(--sev-high);font-size:11px;margin:6px 0 0;">⚠ Low correlation confidence — you'll be asked to confirm before this acts.</p>` : ""}
+              </div>
+              `;
+            })()}
           ` : `<p class="empty-state">No incident selected.</p>`}
         </div>
       </div>
     </section>
+  `;
+}
+
+// Canonical MITRE ATT&CK Enterprise tactic order (kill-chain sequence).
+// Used to order matrix columns left-to-right the way ATT&CK Navigator
+// does, rather than alphabetically or by whatever order the backend
+// happens to return.
+const ATTCK_TACTIC_ORDER = [
+  "Reconnaissance", "Resource Development", "Initial Access", "Execution",
+  "Persistence", "Privilege Escalation", "Defense Evasion", "Credential Access",
+  "Discovery", "Lateral Movement", "Collection", "Command and Control",
+  "Exfiltration", "Impact",
+];
+
+function attckMatrixPanel(mitreHeatmap) {
+  const maxCount = Math.max(1, ...mitreHeatmap.map((r) => r.incident_count));
+
+  // Group observed techniques by tactic.
+  const byTactic = new Map();
+  mitreHeatmap.forEach((row) => {
+    const tactic = row.tactic || "Unspecified";
+    if (!byTactic.has(tactic)) byTactic.set(tactic, []);
+    byTactic.get(tactic).push(row);
+  });
+
+  // Order columns by kill-chain sequence; any tactic not in the
+  // canonical list (unexpected data) is appended at the end rather
+  // than silently dropped.
+  const tacticsPresent = [...byTactic.keys()];
+  const orderedTactics = [
+    ...ATTCK_TACTIC_ORDER.filter((t) => byTactic.has(t)),
+    ...tacticsPresent.filter((t) => !ATTCK_TACTIC_ORDER.includes(t)),
+  ];
+
+  const heatCellStyle = (count) => {
+    const intensity = Math.max(0.12, count / maxCount); // floor so low counts stay visible
+    return `background: rgba(245,166,35, ${intensity.toFixed(2)}); border-color: rgba(245,166,35, ${Math.min(1, intensity + 0.15).toFixed(2)});`;
+  };
+
+  return `
+    <div class="panel">
+      <div class="panel-title">
+        <div><h3>ATT&CK matrix</h3><p>Tactics (kill-chain stage) × techniques observed, shaded by incident count</p></div>
+        <span class="panel-icon">▦</span>
+      </div>
+      <div class="attck-matrix">
+        ${orderedTactics.map((tactic) => {
+          const rows = [...byTactic.get(tactic)].sort((a, b) => b.incident_count - a.incident_count);
+          const tacticTotal = rows.reduce((s, r) => s + r.incident_count, 0);
+          return `
+            <div class="attck-col">
+              <div class="attck-col-head">
+                <span class="attck-col-title">${escapeHtml(tactic)}</span>
+                <span class="attck-col-total">${tacticTotal}</span>
+              </div>
+              ${rows.map((row) => `
+                <div class="attck-cell" style="${heatCellStyle(row.incident_count)}" title="${escapeHtml(row.technique_name)} — ${row.incident_count} incident(s)">
+                  <code>${escapeHtml(row.technique_id)}</code>
+                  <span>${escapeHtml(row.technique_name)}</span>
+                  <b>${row.incident_count}</b>
+                </div>
+              `).join("")}
+            </div>
+          `;
+        }).join("")}
+      </div>
+      <p style="color:var(--text-faint);font-size:11px;font-family:var(--font-mono);margin:10px 0 0;">
+        Columns follow the ATT&CK Enterprise kill-chain order. Darker cell = more incidents used that technique.
+      </p>
+    </div>
   `;
 }
 
@@ -2600,6 +3064,9 @@ function mitreView() {
   }
   const maxCount = Math.max(1, ...mitreHeatmap.map((r) => r.incident_count));
   return `
+    <section class="module-grid" style="grid-template-columns: minmax(0,1fr);">
+      ${attckMatrixPanel(mitreHeatmap)}
+    </section>
     <section class="module-grid two-column">
       <div class="panel">
         <div class="panel-title">
@@ -3193,8 +3660,42 @@ function bindEvents() {
     });
   }
 
+  document.querySelectorAll("[data-dismiss-toast]").forEach((btn) => {
+    btn.addEventListener("click", () => dismissToast(Number(btn.dataset.dismissToast)));
+  });
+
+  document.querySelectorAll("[data-escalate-incident]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const incidentId = btn.dataset.escalateIncident;
+      const existing = incidents.find((i) => i.incident_id === incidentId);
+      if (existing && existing.escalated) {
+        pushToast("Already escalated", `${incidentId} was already escalated to ${existing.escalated_to}.`, "info");
+        return;
+      }
+      const reason = prompt(
+        "Escalate this incident to the on-call manager.\n\n" +
+        "This hands off ownership — add a short reason (authority gap, scope gap, " +
+        "confidence gap, etc.) so it's clear on the other end:"
+      );
+      if (reason === null) return;       // cancelled
+      if (!reason.trim()) {
+        showError("A reason is required to escalate.");
+        return;
+      }
+      escalateIncident(incidentId, reason.trim());
+    });
+  });
+
   document.querySelectorAll("[data-respond-incident]").forEach((btn) => {
     btn.addEventListener("click", () => {
+      const conf = parseFloat(btn.dataset.respondConfidence || "1");
+      if (conf < 0.4 && !confirm(
+        `This incident has low correlation confidence (${Math.round(conf * 100)}%). ` +
+        `Real triage validates before acting — recommended next step is "Validate further," not containment. ` +
+        `Take protective action anyway?`
+      )) {
+        return;
+      }
       respondToIncident(btn.dataset.respondIncident);
     });
   });
